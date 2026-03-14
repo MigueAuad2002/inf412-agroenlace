@@ -11,9 +11,9 @@ class Config:
 
     #CONFIGURACION BASE DE DATOS
     DB_HOST=os.getenv('DB_HOST','')
-    DB_NAME=os.getenv('DB_DATABASE','')
+    DB_NAME=os.getenv('DB_NAME','')
     DB_PORT=os.getenv('DB_PORT','')
-    DB_USER=os.getenv('DB_USERNAME','')
+    DB_USER=os.getenv('DB_USER','')
     DB_PASSWORD=os.getenv('DB_PASSWORD','')
 
     #ESQUEMA CONTENEDOR DE LA APLICACION

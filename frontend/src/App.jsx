@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Login from "./pages/Login";
 import Welcome from "./pages/Welcome";
-// import Register from "./pages/Register";
+// import Register from "./pages/Register"; // Descomenta cuando lo crees
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -11,13 +11,11 @@ function AnimatedRoutes() {
 
   useEffect(() => {
     if (location.pathname !== displayLocation.pathname) {
-      setIsTransitioning(true); // Empezamos a desvanecer
-      
+      setIsTransitioning(true);
       const timer = setTimeout(() => {
-        setDisplayLocation(location); // Cambiamos la página cuando está invisible
-        setIsTransitioning(false);    // Volvemos a mostrar
-      }, 300); // 300ms es el "punto dulce" de la elegancia
-      
+        setDisplayLocation(location);
+        setIsTransitioning(false);
+      }, 300); 
       return () => clearTimeout(timer);
     }
   }, [location, displayLocation]);
@@ -38,7 +36,6 @@ function AnimatedRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      {/* El fondo fijo evita parpadeos blancos */}
       <div className="bg-[#D9F0FB] min-h-screen">
         <AnimatedRoutes />
       </div>

@@ -69,7 +69,7 @@ export default function Welcome() {
         
         {/* Botón Secundario */}
         <Link
-          to="/registro"
+          to="/register"
           className="bg-white hover:bg-gray-50 text-[#2D6A4F] border-2 border-[#2D6A4F]/20 hover:border-[#2D6A4F] font-semibold py-3 px-10 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-300 text-center min-w-[180px] tracking-wide"
         >
           Registrarse

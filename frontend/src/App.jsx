@@ -1,8 +1,12 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+import ProtectedRoute from "./components/ProtectedRoute";
+
 import Login from "./pages/Login";
 import Welcome from "./pages/Welcome";
-// import Register from "./pages/Register"; // Descomenta cuando lo crees
+import Register from "./pages/Register";
+import Dashboard from "./pages/Home";
+import Home from "./pages/Home";
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -21,13 +25,18 @@ function AnimatedRoutes() {
   }, [location, displayLocation]);
 
   return (
-    <div className={`transition-opacity duration-300 ease-linear ${
-      isTransitioning ? 'opacity-0' : 'opacity-100'
-    }`}>
+    <div className={`transition-opacity duration-300 ease-linear ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
       <Routes location={displayLocation}>
+        {/* PÚBLICAS */}
         <Route path="/" element={<Welcome />} />
         <Route path="/login" element={<Login />} />
-        {/* <Route path="/registro" element={<Register />} /> */}
+        <Route path="/register" element={<Register />} />
+        <Route path="/home" element={<Home />} />
+
+        {/* PRIVADAS */}
+        <Route element={<ProtectedRoute />}>
+           
+        </Route>
       </Routes>
     </div>
   );

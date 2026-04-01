@@ -122,7 +122,7 @@ export default function Login() {
         <div className="mt-8 pt-6 border-t border-gray-100 text-center">
           <p className="text-xs text-gray-500 font-medium">
             ¿Aún no tienes acceso?{' '}
-            <Link to="/registro" className="text-[#5B9D1E] font-bold hover:text-[#1A5729] transition-colors">
+            <Link to="/register" className="text-[#5B9D1E] font-bold hover:text-[#1A5729] transition-colors">
               SOLICITAR CUENTA
             </Link>
           </p>

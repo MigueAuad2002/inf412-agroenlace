@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { despertarBackend } from "./services/api";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import Login from "./pages/Login";
@@ -31,11 +32,11 @@ function AnimatedRoutes() {
         <Route path="/" element={<Welcome />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/home" element={<Home />} />
+        
 
         {/* PRIVADAS */}
         <Route element={<ProtectedRoute />}>
-           
+          <Route path="/home" element={<Home />} />
         </Route>
       </Routes>
     </div>
@@ -43,6 +44,9 @@ function AnimatedRoutes() {
 }
 
 export default function App() {
+  useEffect(() => {
+    despertarBackend();
+  }, []);
   return (
     <BrowserRouter>
       <div className="bg-[#D9F0FB] min-h-screen">

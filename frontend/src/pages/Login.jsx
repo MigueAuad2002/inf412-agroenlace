@@ -1,13 +1,21 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import logoAgro from '../assets/LOGO.png'; 
+import { useAuthStore } from '../store/auth_store';
 
 export default function Login() {
-  const [correo, setCorreo] = useState('');
+  const API_URL = import.meta.env.VITE_API_URL;
+
+  //ESTADOS REACT
+  const [user, setUser] = useState('');
   const [password, setPassword] = useState('');
+  
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  //ACCION LOGIN DE ZUSTAND
+  const { login } = useAuthStore();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -15,22 +23,29 @@ export default function Login() {
     setLoading(true);
     
     try {
-      const response = await fetch('http://localhost:5000/api/login', {
+      const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ correo, password }),
+        body: JSON.stringify({ 
+          user_input: user, 
+          password: password 
+        }),
       });
 
-      if (!response.ok) {
-        throw new Error('Credenciales incorrectas. Intente de nuevo.');
+      const data = await response.json();
+
+      //VALIDACION SUCCESS BACKEND
+      if (!data.success) {
+        throw new Error(data.message || 'Credenciales incorrectas. Intente de nuevo.');
       }
 
-      const data = await response.json();
-      console.log('Login exitoso:', data);
+      console.log('Login exitoso para:', data.user.nombre_razon_social);
       
-      // Guardamos el token (luego usaremos Zustand, por ahora localStorage)
-      localStorage.setItem('token', data.token);
-      navigate('/dashboard'); 
+      //GUARDAMOS TOKEN
+      login(data.access_token, data.user);
+      
+      //REDIRIGIMOS A '/home'
+      navigate('/home'); 
       
     } catch (err) {
       setError(err.message);
@@ -57,26 +72,29 @@ export default function Login() {
           <p className="text-gray-500 text-sm font-medium uppercase tracking-widest mt-1 opacity-70">Acceso Institucional</p>
         </div>
 
-        {/* Mensaje de Error con estilo profesional */}
+        {/* MENSAJE ERROR*/}
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded mb-6 text-sm flex items-center animate-shake">
-            <span className="font-bold mr-2">⚠️</span> {error}
+          <div className="bg-red-50/80 border border-red-100 text-red-600 px-4 py-3.5 rounded-lg mb-6 text-sm flex items-center shadow-sm animate-shake transition-all">
+            <svg className="w-5 h-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span className="font-medium tracking-wide">{error}</span>
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-5">
-          {/* Input Correo */}
+          {/* Input Usuario/Correo */}
           <div>
             <label className="block text-xs font-bold text-[#1A5729] uppercase tracking-wider mb-1.5">
-              Correo Electrónico
+              Usuario o Correo
             </label>
             <input
-              type="email"
+              type="text"
               required
-              value={correo}
-              onChange={(e) => setCorreo(e.target.value)}
+              value={user}
+              onChange={(e) => setUser(e.target.value)}
               className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#5B9D1E] focus:border-transparent outline-none transition-all bg-gray-50/50 placeholder:text-gray-400 text-sm"
-              placeholder="nombre@empresa.com"
+              placeholder="nombre@empresa.com o jperez"
             />
           </div>
 
@@ -98,7 +116,7 @@ export default function Login() {
             />
           </div>
 
-          {/* Botón de Acción con efecto de carga */}
+          {/* Botón de Acción con efecto de carga intacto */}
           <button
             type="submit"
             disabled={loading}

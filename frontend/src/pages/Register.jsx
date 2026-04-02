@@ -3,7 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import logoAgro from '../assets/LOGO.png'; 
 
 export default function Register() {
-  // Estados actualizados según tu base de datos PostgreSQL
+
+  const API_URL = import.meta.env.VITE_API_URL;
+
+  //ESTADOS REACT
   const [userName, setUserName] = useState('');
   const [documentoIdentidad, setDocumentoIdentidad] = useState('');
   const [nombreRazonSocial, setNombreRazonSocial] = useState('');
@@ -35,25 +38,29 @@ export default function Register() {
     setLoading(true);
     
     try {
-      const response = await fetch('http://localhost:5000/api/register', {
+      const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Enviamos exactamente lo que la DB necesita
         body: JSON.stringify({ 
-          user_name: userName,
-          documento_identidad: documentoIdentidad,
-          nombre_razon_social: nombreRazonSocial,
-          correo,
-          telefono,
-          direccion,
-          password // El backend lo convertirá en PASSWORD_HASH con Bcrypt
+          user: userName,
+          doc: documentoIdentidad,
+          name: nombreRazonSocial,
+          mail: correo,
+          number: telefono,
+          dir: direccion,
+          password: password 
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Error al registrar. Verifica si el usuario, correo o documento ya existen.');
+      //CONVERTIMOS RESPUESTA A JSON
+      const data = await response.json();
+
+      //VALIDACION BACKEND SUCCESS
+      if (!data.success) {
+        throw new Error(data.message || 'Error al registrar el usuario.');
       }
 
+      //MENSAJE EXITO
       setSuccess(true);
       setTimeout(() => {
         navigate('/login');
@@ -82,15 +89,23 @@ export default function Register() {
           <p className="text-gray-500 text-xs font-medium uppercase tracking-widest mt-1 opacity-70">Registro Institucional</p>
         </div>
 
+        {/* MENSAJE DE ERROR */}
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded mb-5 text-sm flex items-center animate-shake">
-            <span className="font-bold mr-2">⚠️</span> {error}
+          <div className="bg-red-50/80 border border-red-100 text-red-600 px-4 py-3.5 rounded-lg mb-5 text-sm flex items-center shadow-sm animate-shake transition-all">
+            <svg className="w-5 h-5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span className="font-medium tracking-wide">{error}</span>
           </div>
         )}
 
+        {/* MENSAJE DE EXITO */}
         {success && (
-          <div className="bg-green-50 border-l-4 border-[#5B9D1E] text-[#1A5729] p-3 rounded mb-5 text-sm flex items-center">
-            <span className="font-bold mr-2">✅</span> Cuenta creada. Redirigiendo al login...
+          <div className="bg-[#F4F9F1] border border-[#5B9D1E]/30 text-[#1A5729] px-4 py-3.5 rounded-lg mb-5 text-sm flex items-center shadow-sm transition-all">
+            <svg className="w-5 h-5 mr-3 text-[#5B9D1E] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span className="font-medium tracking-wide">Cuenta creada exitosamente. Redirigiendo al login...</span>
           </div>
         )}
 

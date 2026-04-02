@@ -10,7 +10,7 @@ export default function Welcome() {
   useEffect(() => {
     setIsLoaded(true);
     const token = localStorage.getItem('token'); 
-    if (token) navigate('/dashboard'); 
+    if (token) navigate('/home'); 
   }, [navigate]);
 
   useEffect(() => {

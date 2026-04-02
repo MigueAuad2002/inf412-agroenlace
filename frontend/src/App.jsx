@@ -6,7 +6,6 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Welcome from "./pages/Welcome";
 import Register from "./pages/Register";
-import Dashboard from "./pages/Home";
 import Home from "./pages/Home";
 
 function AnimatedRoutes() {

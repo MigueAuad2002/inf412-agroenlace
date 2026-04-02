@@ -20,7 +20,7 @@ class Config:
     SCHEMA='agroenlace'
     
     #TABLAS A DISPOSICION EN LA BASE DE DATOS
-    
+    T_USER='USUARIO'
 
 db=PostgreSQL(
     Config.DB_HOST,

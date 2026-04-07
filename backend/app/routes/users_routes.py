@@ -59,3 +59,69 @@ def get_users():
         })
     finally:
         db.close_connection()
+
+
+@users_routes.route('/api/delete-users',methods=['POST'])
+def delete_users():
+
+    #OBTENER LA CABECERA DONDE SE ENVIA EL TOKEN
+    auth_header=request.headers.get('Authorization')
+
+    #SI NO CONTIENE LA CABECERA RETORNAR JSON ERROR
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({
+            'success':False,
+            'message':'Usuario No Autenticado.'
+        }),401
+
+    #EXTRAER EL TOKEN LIMPIO
+    token = auth_header.split(" ")[1]
+
+    #VALIDAR TOKEN
+    validation=decode_access_token(token)
+
+    #TOKEN INVALIDO ARROJAR JSON ERROR
+    if not validation['success']:
+        return jsonify({'success':False,'message':'Usuario No Autenticado.'}),401
+    
+    data  = request.get_json()
+    username = data.get("user")
+    if not username : 
+        return jsonify({
+            'success':False,
+            'message':'Debe seleccionar un usuario.'
+        })
+    #LOGICA DE EXTRACCION DE USUARIOS
+    try:
+        #ESTABLECER CONEXION CON LA BASE DE DATOS
+        db.create_connection()
+
+        #CONSULTA PARA ELIMINAR UN USUARIO
+        delete_query="""
+            delete from agroenlace.usuario 
+            where user_name = %s
+        """
+        delete_params = (username, )
+        delete_result=db.execute_query(
+            delete_query,delete_params,commit=True
+        )
+        if delete_result <1 :
+            return jsonify({
+                'success':False,
+                'message':'Usuario No Encontrado.'
+            })
+        print(delete_result)
+        return jsonify({
+            'success':True,
+            'message':'Usuarios eliminados Exitosamente.',
+            'filas_afectadas':delete_result
+        })
+
+    except Exception as e:
+        print(f'ERROR: {e}')
+        return jsonify({
+            'success':False,
+            'message':f'ERROR: {e}'
+        })
+    finally:
+        db.close_connection()

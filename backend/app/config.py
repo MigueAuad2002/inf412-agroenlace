@@ -21,6 +21,8 @@ class Config:
     
     #TABLAS A DISPOSICION EN LA BASE DE DATOS
     T_USER='USUARIO'
+    T_ROL ='ROL'
+    
 
 db=PostgreSQL(
     Config.DB_HOST,

@@ -125,17 +125,12 @@ export default function Home() {
   ];
 
   const modulosPermitidos = modulos.filter((mod) => {
-    //SELECCIONAMOS MODULOS VISIBLES DE ACUERDO AL ROL
-    if (mod.id === 'security') 
-    {
+    if (mod.id === 'security') {
       return user?.id_rol === 1;
     }
-    
-    if (mod.id=='produccion')
-    {
-      return [1,2,3].includes(user?.id_rol);
+    if (mod.id === 'produccion') {
+      return [1, 2, 3].includes(user?.id_rol);
     }
-    
     return true;
   });
 
@@ -143,21 +138,19 @@ export default function Home() {
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0F172A] font-sans antialiased selection:bg-[#5B9D1E] selection:text-white transition-colors duration-300">
       
       {/* Navbar Superior */}
-      <nav className="bg-white dark:bg-[#1E293B] shadow-sm border-b border-gray-200 dark:border-slate-700/80 px-6 py-3 flex justify-between items-center sticky top-0 z-50 transition-colors duration-300">
+      <nav className="bg-white dark:bg-[#1E293B] shadow-sm border-b border-gray-200 dark:border-slate-700/80 px-4 md:px-6 py-3 flex justify-between items-center sticky top-0 z-50 transition-colors duration-300">
         
         {/* Logo y Branding */}
         <div className="flex items-center gap-3">
-          <img src={logoAgro} alt="AgroEnlace" className="w-9 h-9 rounded-md border border-gray-100 dark:border-slate-600 object-contain bg-white" />
+          <img src={logoAgro} alt="AgroEnlace" className="w-8 h-8 md:w-9 md:h-9 rounded-md border border-gray-100 dark:border-slate-600 object-contain bg-white" />
           <div className="flex flex-col">
-            <h1 className="text-lg font-black text-[#1A5729] dark:text-[#7BC636] tracking-tight leading-none">AgroEnlace</h1>
-            <span className="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase tracking-widest mt-0.5">Workspace</span>
+            <h1 className="text-base md:text-lg font-black text-[#1A5729] dark:text-[#7BC636] tracking-tight leading-none">AgroEnlace</h1>
+            <span className="text-[9px] md:text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase tracking-widest mt-0.5">Workspace</span>
           </div>
         </div>
         
         {/* Controles de Usuario a la derecha */}
         <div className="flex items-center gap-4">
-          
-          {/* Nombre y Rol */}
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold text-gray-700 dark:text-slate-200">
               {user?.nombre_razon_social?.split(' ')[0] || 'Administrador'}
@@ -167,53 +160,38 @@ export default function Home() {
             </p>
           </div>
           
-          {/* Botones de Acción (Estilo Píldora Uniforme) */}
-          <div className="flex items-center bg-gray-50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-full p-1 shadow-inner ml-2">
+          <div className="flex items-center bg-gray-50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-full p-1 shadow-inner md:ml-2">
             
-            {/* Toggle Modo Oscuro */}
             <button 
               onClick={toggleDarkMode}
-              className="p-2 text-gray-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-slate-700 rounded-full transition-all hover:shadow-sm flex items-center justify-center"
+              className="p-1.5 md:p-2 text-gray-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-slate-700 rounded-full transition-all hover:shadow-sm flex items-center justify-center"
               title={isDarkMode ? "Modo Claro" : "Modo Oscuro"}
             >
               {isDarkMode ? (
-                <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
-                </svg>
+                <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 md:w-4 md:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>
               ) : (
-                <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
-                </svg>
+                <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 md:w-4 md:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>
               )}
             </button>
 
-            {/* Separador */}
             <div className="w-px h-4 bg-gray-200 dark:bg-slate-600 mx-0.5"></div>
 
-            {/* Botón Perfil */}
             <button
               onClick={() => navigate('/perfil')}
-              className="p-2 text-gray-500 hover:text-[#5B9D1E] dark:text-slate-400 dark:hover:text-[#7BC636] hover:bg-white dark:hover:bg-slate-700 rounded-full transition-all hover:shadow-sm flex items-center justify-center"
+              className="p-1.5 md:p-2 text-gray-500 hover:text-[#5B9D1E] dark:text-slate-400 dark:hover:text-[#7BC636] hover:bg-white dark:hover:bg-slate-700 rounded-full transition-all hover:shadow-sm flex items-center justify-center"
               title="Mi Perfil"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 md:w-4 md:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
             </button>
 
-            {/* Separador */}
             <div className="w-px h-4 bg-gray-200 dark:bg-slate-600 mx-0.5"></div>
 
-            {/* Botón Salir */}
             <button
               onClick={handleLogout}
-              className="p-2 text-gray-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400 hover:bg-white dark:hover:bg-slate-700 rounded-full transition-all hover:shadow-sm flex items-center justify-center"
+              className="p-1.5 md:p-2 text-gray-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400 hover:bg-white dark:hover:bg-slate-700 rounded-full transition-all hover:shadow-sm flex items-center justify-center"
               title="Cerrar Sesión"
             >
-              <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
-              </svg>
+              <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 md:w-4 md:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" /></svg>
             </button>
 
           </div>
@@ -221,41 +199,45 @@ export default function Home() {
       </nav>
 
       {/* Contenido Principal */}
-      <main className="max-w-7xl mx-auto p-6 md:p-10">
+      <main className="max-w-7xl mx-auto p-4 md:p-10">
         
         {/* Saludo Dinámico */}
-        <div className="mb-10">
-          <h2 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight">
+        <div className="mb-6 md:mb-10 text-center md:text-left">
+          <h2 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white tracking-tight">
             {obtenerSaludo()}, {user?.nombre_razon_social?.split(' ')[0] || 'Administrador'}
           </h2>
-          <p className="text-gray-500 dark:text-slate-400 mt-1 font-medium">Selecciona un módulo operativo para comenzar a trabajar.</p>
+          <p className="text-sm md:text-base text-gray-500 dark:text-slate-400 mt-1 font-medium">Selecciona un módulo para comenzar.</p>
         </div>
 
-        {/* Grid de Módulos Operativos */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* CAMBIO CLAVE: grid-cols-2 para móviles, md:grid-cols-3 para PC 
+          También ajusté el gap (espacio) para que no estén tan separados en el celular
+        */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
           
           {modulosPermitidos.map((mod) => (
             <div 
               key={mod.id}
               onClick={() => navigate(mod.ruta)}
-              className={`bg-white dark:bg-[#1E293B] p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 ${mod.borde} hover:shadow-md transition-all duration-150 cursor-pointer group flex flex-col h-full`}
+              className={`bg-white dark:bg-[#1E293B] p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 ${mod.borde} hover:shadow-md transition-all duration-150 cursor-pointer group flex flex-col h-full items-center md:items-start text-center md:text-left`}
             >
-              <div className="flex items-start mb-5">
-                <div className={`p-3.5 rounded-xl ${mod.bg} ${mod.color}`}>
+              {/* Icono centrado en móvil, a la izquierda en PC */}
+              <div className="flex items-center md:items-start mb-3 md:mb-5">
+                <div className={`p-2.5 md:p-3.5 rounded-xl ${mod.bg} ${mod.color}`}>
                   {mod.icono}
                 </div>
               </div>
               
-              <h3 className="text-lg font-bold text-gray-800 dark:text-slate-100 mb-2 group-hover:text-[#1A5729] dark:group-hover:text-[#7BC636] transition-colors duration-150">
+              <h3 className="text-[13px] md:text-lg font-bold text-gray-800 dark:text-slate-100 mb-1 md:mb-2 group-hover:text-[#1A5729] dark:group-hover:text-[#7BC636] transition-colors duration-150 leading-tight">
                 {mod.titulo}
               </h3>
               
-              <p className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed flex-grow">
+              {/* Descripción oculta en celulares para no romper la estética 2x2 */}
+              <p className="hidden md:block text-sm text-gray-500 dark:text-slate-400 leading-relaxed flex-grow">
                 {mod.desc}
               </p>
               
-              {/* Animación Rápida de Acceso */}
-              <div className="mt-6 flex items-center text-sm font-bold text-[#5B9D1E] dark:text-[#7BC636] opacity-0 group-hover:opacity-100 transition-all transform -translate-x-2 group-hover:translate-x-0 duration-150">
+              {/* Texto de Ingresar oculto en celulares */}
+              <div className="hidden md:flex mt-6 items-center text-sm font-bold text-[#5B9D1E] dark:text-[#7BC636] opacity-0 group-hover:opacity-100 transition-all transform -translate-x-2 group-hover:translate-x-0 duration-150">
                 Ingresar al módulo 
                 <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 ml-1">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />

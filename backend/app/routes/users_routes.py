@@ -54,11 +54,24 @@ def get_users():
             users_query,fetchall=True
         )
 
-        print(users_result)
+        data=[]
+        columns=[]
+
+        for column in db.cur.description:
+            columns.append(column[0])
+        
+        for row in users_result:
+            data.append(dict(zip(columns,row)))
+        
+        #print('DICCIONARIO')
+        #print(data)
+
+        #print('LISTA')
+        #print(users_result)
         return jsonify({
             'success':True,
             'message':'Usuarios obtenidos Exitosamente.',
-            'list_users':users_result
+            'list_users':data
         })
 
     except Exception as e:

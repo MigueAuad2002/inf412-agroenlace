@@ -25,11 +25,21 @@ export default function Register() {
     e.preventDefault();
     setError('');
     
+    //VALIDAMOS QUE SEA UN CORREO VALIDO CON UN REGEX
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!emailRegex.test(correo)) {
+      setError('Por favor, ingresa un correo electrónico válido.');
+      return;
+    }
+
+    //VALIDAMOS QUE HAYA ESCRITO BIEN LA CONTRASEÑA
     if (password !== confirmPassword) {
       setError('Las contraseñas no coinciden.');
       return;
     }
 
+    //CONTRASEÑA MAYOR A 6 CARACTERES
     if (password.length < 6) {
       setError('La contraseña debe tener al menos 6 caracteres.');
       return;
@@ -37,7 +47,8 @@ export default function Register() {
 
     setLoading(true);
     
-    try {
+    try 
+    {
       const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -52,23 +63,24 @@ export default function Register() {
         }),
       });
 
-      //CONVERTIMOS RESPUESTA A JSON
       const data = await response.json();
 
-      //VALIDACION BACKEND SUCCESS
       if (!data.success) {
         throw new Error(data.message || 'Error al registrar el usuario.');
       }
 
-      //MENSAJE EXITO
       setSuccess(true);
       setTimeout(() => {
         navigate('/login');
       }, 2000); 
       
-    } catch (err) {
+    } 
+    catch (err) 
+    {
       setError(err.message);
-    } finally {
+    } 
+    finally 
+    {
       setLoading(false);
     }
   };

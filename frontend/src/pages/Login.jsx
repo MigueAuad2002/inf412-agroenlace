@@ -93,6 +93,7 @@ export default function Login() {
               required
               value={user}
               onChange={(e) => setUser(e.target.value)}
+              tabIndex={1} // <-- 1. Primer salto aquí
               className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#5B9D1E] focus:border-transparent outline-none transition-all bg-gray-50/50 placeholder:text-gray-400 text-sm"
               placeholder="nombre@empresa.com o jperez"
             />
@@ -104,22 +105,30 @@ export default function Login() {
               <label className="block text-xs font-bold text-[#1A5729] uppercase tracking-wider">
                 Contraseña
               </label>
-              <a href="#" className="text-[10px] font-bold text-[#5B9D1E] uppercase hover:underline">¿Olvidaste tu clave?</a>
+              <a 
+                href="#" 
+                tabIndex={4} // <-- 4. Lo mandamos al final de la cola del formulario
+                className="text-[10px] font-bold text-[#5B9D1E] uppercase hover:underline"
+              >
+                ¿Olvidaste tu clave?
+              </a>
             </div>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              tabIndex={2} // <-- 2. Segundo salto directo a la contraseña
               className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#5B9D1E] focus:border-transparent outline-none transition-all bg-gray-50/50 placeholder:text-gray-400 text-sm"
               placeholder="••••••••"
             />
           </div>
 
-          {/* Botón de Acción con efecto de carga intacto */}
+          {/* Botón de Acción */}
           <button
             type="submit"
             disabled={loading}
+            tabIndex={3} // <-- 3. Tercer salto al botón de ingresar
             className={`w-full py-3.5 rounded-lg font-bold text-white shadow-lg transition-all duration-300 transform active:scale-[0.98] flex items-center justify-center ${
               loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#2D6A4F] hover:bg-[#1B4332] hover:shadow-[#2D6A4F]/20'
             }`}

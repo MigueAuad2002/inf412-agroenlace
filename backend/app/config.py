@@ -23,6 +23,7 @@ class Config:
     T_USER='USUARIO'
     T_ROL ='ROL'
     T_BITACORA='BITACORA'
+    T_ORDEN='ORDEN_TRABAJO'
     
 
 db=PostgreSQL(

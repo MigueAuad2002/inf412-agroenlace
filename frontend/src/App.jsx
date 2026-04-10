@@ -14,6 +14,7 @@ import Register from "./pages/Register";
 import Home from "./pages/Home";
 import SecurityUsers from "./pages/SecurityUsers"; 
 import SecurityAudit from "./pages/SecurityAudit";
+import SecurityRole from "./pages/SecurityRole";
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -45,15 +46,19 @@ function AnimatedRoutes() {
           <Route path="/home" element={<Home />} />
         </Route>
 
-        {/* PRIVADAS SOLO ADMINISTRADORES (Requiere id_rol === 1) */}
+        {/* PRIVADAS SOLO ADMINISTRADORES */}
         <Route element={<AdminRoute />}>
           {/*LAYOUT - PLANTILLA QUE CONTIENE EL SIDEBAR*/}
           <Route element={<DashboardLayout />}>
             <Route path="/security/users" element={<SecurityUsers />} />
+            <Route path="/security/roles" element={<SecurityRole/>} />
             <Route path="/security/audit" element={<SecurityAudit/>} />
             
             {/* Rutas en construcción*/}
-            <Route path="/security/roles" element={<div className="p-8 font-bold text-gray-500">Configuración de Roles (Próximamente)</div>} />
+            <Route path="/agro/lote" element={<div className="p-8 font-bold text-gray-500">Configuración de Lotes (Próximamente)</div>} />
+            <Route path="/agro/campana" element={<div className="p-8 font-bold text-gray-500">Configuración de Campañas (Próximamente)</div>} />
+            <Route path="/agro/ordenes" element={<div className="p-8 font-bold text-gray-500">Configuración de Ordenes Trabajo (Próximamente)</div>} />
+
           </Route>
         </Route>
 

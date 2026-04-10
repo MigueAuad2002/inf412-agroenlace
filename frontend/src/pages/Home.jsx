@@ -42,7 +42,7 @@ export default function Home() {
       id: 'produccion',
       titulo: 'Producción Agrícola',
       desc: 'Control de lotes, siembras, cosechas, inventario de agroquímicos y asignación de maquinaria.',
-      ruta: '/produccion',
+      ruta: '/agro/lote',
       color: 'text-emerald-600 dark:text-emerald-400',
       bg: 'bg-emerald-50 dark:bg-emerald-500/10',
       borde: 'hover:border-emerald-500 dark:hover:border-emerald-400',

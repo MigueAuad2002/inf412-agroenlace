@@ -22,6 +22,7 @@ class Config:
     #TABLAS A DISPOSICION EN LA BASE DE DATOS
     T_USER='USUARIO'
     T_ROL ='ROL'
+    T_ORDEN='ORDEN_TRABAJO'
     
 
 db=PostgreSQL(

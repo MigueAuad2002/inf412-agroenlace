@@ -24,6 +24,7 @@ class Config:
     T_ROL ='ROL'
     T_ORDEN='ORDEN_TRABAJO'
     T_TERRENO='TERRENO'
+    T_CAMPANA='CAMPANA_CULTIVO'
     
 
 db=PostgreSQL(

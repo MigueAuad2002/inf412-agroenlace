@@ -55,13 +55,12 @@ def get_users():
         )
 
         data=[]
-        columns=[]
-
-        for column in db.cur.description:
-            columns.append(column[0])
         
-        for row in users_result:
-            data.append(dict(zip(columns,row)))
+        # Validación de seguridad para evitar "'NoneType' object is not iterable"
+        if users_result is not None and db.cur.description:
+            columns = [column[0] for column in db.cur.description]
+            for row in users_result:
+                data.append(dict(zip(columns, row)))
         
         #print('DICCIONARIO')
         #print(data)

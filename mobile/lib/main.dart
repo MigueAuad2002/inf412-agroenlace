@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:provider/provider.dart'; // Importa provider
+import 'package:provider/provider.dart'; // Importante
 
-import 'providers/auth_provider.dart'; // Importa tu nuevo provider
+import 'providers/auth_provider.dart';
 import 'screens/login_screen.dart';
-// IMPORTANTE: Crea un archivo dummy llamado dashboard_screen.dart en screens/ 
-// con un texto centrado para que no de error aquí, o usa el código que te daré luego.
 import 'screens/dashboard_screen.dart'; 
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized(); 
   await dotenv.load(fileName: ".env");
   
-  // Envolvemos la app en el MultiProvider
+  // Envolvemos la app para que el AuthProvider esté disponible en todas partes
   runApp(
     MultiProvider(
       providers: [
@@ -35,7 +33,7 @@ class _AgroEnlaceAppState extends State<AgroEnlaceApp> {
   @override
   void initState() {
     super.initState();
-    // Apenas la app arranca, revisamos si ya hay un token guardado
+    // Apenas arranca la app, le decimos al Provider que busque el token
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AuthProvider>(context, listen: false).checkStoredToken();
     });
@@ -43,7 +41,7 @@ class _AgroEnlaceAppState extends State<AgroEnlaceApp> {
 
   @override
   Widget build(BuildContext context) {
-    // Escuchamos el estado de autenticación (Nuestro Zustand)
+    // Escuchamos el estado del Provider (como hacer const { token } = useAuthStore() en React)
     final authProvider = Provider.of<AuthProvider>(context);
 
     return MaterialApp(
@@ -51,14 +49,12 @@ class _AgroEnlaceAppState extends State<AgroEnlaceApp> {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A5729),
-          brightness: Brightness.light,
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A5729)),
       ),
-      // LA MAGIA DEL ENRUTAMIENTO CONDICIONAL (Igual que en React)
+      // MAGIA DE ENRUTAMIENTO: Si está cargando, muestra circulito. 
+      // Si hay token, muestra Dashboard. Si no, muestra Login.
       home: authProvider.isLoading 
-          ? const Scaffold(body: Center(child: CircularProgressIndicator())) // Pantalla de carga inicial
+          ? const Scaffold(body: Center(child: CircularProgressIndicator())) 
           : authProvider.isAuthenticated 
               ? const DashboardScreen() 
               : const LoginScreen(),    

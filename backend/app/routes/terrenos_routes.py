@@ -64,13 +64,12 @@ def get_terrenos():
         )
 
         data = []
-        columns = []
-
-        for column in db.cur.description:
-            columns.append(column[0])
-
-        for row in terrenos_result:
-            data.append(dict(zip(columns, row)))
+        
+        # Validación de seguridad: solo ensamblar si hay resultados y existe descripción
+        if terrenos_result is not None and db.cur.description:
+            columns = [column[0] for column in db.cur.description]
+            for row in terrenos_result:
+                data.append(dict(zip(columns, row)))
 
         return jsonify({
             'success': True,

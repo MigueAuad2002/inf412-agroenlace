@@ -66,3 +66,40 @@ class PostgreSQL():
                 self.conn.rollback()
             print(f'ERROR: {e}, EJECUTANDO ROLLBACK')
             raise
+
+    def insert_log(self, accion, id_user):
+        """
+        INSERTA UN LOG DENTRO DE LA TABLA BITACORA CON LA ACCION REGISTRADA
+        Y EL ID USUARIO
+
+        Args:
+        accion: ACCION A REGISTRAR POR EL USUARIO
+        id_user: IDENTIFICADOR DEL USUARIO QUE ESTA REALIZANDO LA ACCION
+        """
+
+        if not self.conn or not self.cur:
+            print('NO HAY UNA CONEXION ACTIVA A LA BASE DE DATOS PARA EL LOG')
+            return False
+            
+        try:
+            query = """
+                INSERT INTO agroenlace.bitacora (accion, id_usuario)
+                VALUES (%s, %s)
+            """
+            
+            params = (accion, id_user)
+
+            filas_afectadas = self.execute_query(query, params, commit=True)
+            
+            if filas_afectadas and filas_afectadas > 0:
+                print(f'LOG REGISTRADO EXITOSAMENTE: "{accion}" para el usuario {id_user}')
+                return True
+            else:
+                print('NO SE REGISTRÓ EL LOG, VERIFICA LA CONSULTA')
+                return False
+
+        except Exception as e:
+            # Tu método execute_query ya hace el rollback si falla, así que aquí solo atajamos el error
+            print(f'ERROR AL INSERTAR LOG EN BITÁCORA: {e}')
+            return False
+        

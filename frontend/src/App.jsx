@@ -15,6 +15,7 @@ import Home from "./pages/Home";
 import SecurityUsers from "./pages/SecurityUsers"; 
 import SecurityAudit from "./pages/SecurityAudit";
 import SecurityRole from "./pages/SecurityRole";
+import AgroLotes from "./pages/AgroLotes";
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -40,6 +41,7 @@ function AnimatedRoutes() {
         <Route path="/" element={<Welcome />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        
 
         {/* PRIVADAS GENERALES (Cualquier usuario logueado) */}
         <Route element={<ProtectedRoute />}>
@@ -55,7 +57,7 @@ function AnimatedRoutes() {
             <Route path="/security/audit" element={<SecurityAudit/>} />
             
             {/* Rutas en construcción*/}
-            <Route path="/agro/lote" element={<div className="p-8 font-bold text-gray-500">Configuración de Lotes (Próximamente)</div>} />
+            <Route path="/agro/lote" element={<AgroLotes />} />
             <Route path="/agro/campana" element={<div className="p-8 font-bold text-gray-500">Configuración de Campañas (Próximamente)</div>} />
             <Route path="/agro/ordenes" element={<div className="p-8 font-bold text-gray-500">Configuración de Ordenes Trabajo (Próximamente)</div>} />
 

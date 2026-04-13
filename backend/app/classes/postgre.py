@@ -55,10 +55,10 @@ class PostgreSQL():
                 self.conn.commit()
             
             if fetchone:
-                return self.cur.fetchone()
+                return self.cur.fetchone() if self.cur.description is not None else None
             
             if fetchall:
-                return self.cur.fetchall()
+                return self.cur.fetchall() if self.cur.description is not None else []
             
             return self.cur.rowcount
         except Exception as e:

@@ -24,6 +24,7 @@ class Config:
     T_ROL ='ROL'
     T_BITACORA='BITACORA'
     T_ORDEN='ORDEN_TRABAJO'
+    T_TERRENO='TERRENO'
     
 
 db=PostgreSQL(

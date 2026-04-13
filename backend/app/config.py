@@ -23,6 +23,7 @@ class Config:
     T_USER='USUARIO'
     T_ROL ='ROL'
     T_ORDEN='ORDEN_TRABAJO'
+    T_TERRENO='TERRENO'
     
 
 db=PostgreSQL(

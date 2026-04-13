@@ -42,7 +42,11 @@ export default function DashboardLayout() {
     {
       modulo: 'Producción Agrícola',
       rolesPermitidos: [1, 2, 3], 
-      submenus: []
+      submenus: [
+        {nombre:'Terrenos - Lotes',ruta:'/agro/lote'},
+        {nombre:'Campañas de Siembra/Cosecha',ruta:'/agro/campana'},
+        {nombre:'Ordenes de Trabajo',ruta:'/agro/ordenes'}
+      ]
     },
     {
       modulo: 'Ventas y Comercialización',

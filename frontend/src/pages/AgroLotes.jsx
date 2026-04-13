@@ -14,7 +14,6 @@ export default function AgroLotes() {
   const logout = useAuthStore((state) => state.logout); 
   
   const [lotes, setLotes] = useState([]);
-  const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,11 +28,13 @@ export default function AgroLotes() {
     latitud: '',
     longitud: '',
     estado: 'ACTIVO',
-    id_usuario: '' 
+    id_usuario: '' // Ahora es un input manual
   });
 
   const cargarTerrenos = async () => {
     setLoading(true);
+    setError('');
+    
     try {
       const response = await fetch(`${API_URL}/get-terrenos`, {
         method: 'GET',
@@ -60,31 +61,8 @@ export default function AgroLotes() {
     }
   };
 
-  const cargarUsuarios = async () => {
-    try {
-      const response = await fetch(`${API_URL}/get-users`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
-        }
-      });
-      const data = await response.json();
-      if (data.success) {
-        setUsuarios(data.list_users || []);
-      }
-    } catch (err) {
-      console.warn("Error al cargar usuarios:", err.message);
-    }
-  };
-
   useEffect(() => {
-    // Solución a la condición de carrera: ejecutar secuencialmente
-    const inicializarDatos = async () => {
-      await cargarUsuarios();
-      await cargarTerrenos();
-    };
-    inicializarDatos();
+    cargarTerrenos();
   }, []);
 
   const handleEliminar = async (nro_lote, nombre) => {
@@ -108,13 +86,15 @@ export default function AgroLotes() {
 
   const openAddModal = () => {
     setIsEditing(false);
-    setFormData({ nro_lote: '', nombre_sector: '', tamano_hectareas: '', latitud: '', longitud: '', estado: 'ACTIVO', id_usuario: '' });
+    setFormData({ 
+      nro_lote: '', nombre_sector: '', tamano_hectareas: '', 
+      latitud: '', longitud: '', estado: 'ACTIVO', id_usuario: '' 
+    });
     setShowModal(true);
   };
 
   const openEditModal = (lote) => {
     setIsEditing(true);
-    // Usamos getVal para asegurar que capturemos el dato sí o sí
     setFormData({
       nro_lote: getVal(lote, 'nro_lote'),
       nombre_sector: getVal(lote, 'nombre_sector'),
@@ -122,7 +102,8 @@ export default function AgroLotes() {
       latitud: getVal(lote, 'latitud'),
       longitud: getVal(lote, 'longitud'),
       estado: getVal(lote, 'estado') || 'ACTIVO',
-      id_usuario: getVal(lote, 'id') // El alias de ID_USUARIO
+      // Tu backend devuelve T.ID_USUARIO AS ID, así que buscamos la llave 'id'
+      id_usuario: getVal(lote, 'id') || getVal(lote, 'id_usuario') 
     });
     setShowModal(true);
   };
@@ -131,7 +112,6 @@ export default function AgroLotes() {
     e.preventDefault();
     const endpoint = isEditing ? '/update-terreno' : '/add-terreno';
     
-    // Parseo de los valores antes de enviarlos al backend para asegurar tipos correctos
     const payload = {
       ...formData,
       tamano_hectareas: parseFloat(formData.tamano_hectareas),
@@ -164,140 +144,205 @@ export default function AgroLotes() {
 
   const lotesFiltrados = lotes.filter((lote) => {
     const termino = searchTerm.toLowerCase();
+    const nro = String(getVal(lote, 'nro_lote')).toLowerCase();
     const nombre = String(getVal(lote, 'nombre_sector')).toLowerCase();
     const propietario = String(getVal(lote, 'propietario')).toLowerCase();
-    return nombre.includes(termino) || propietario.includes(termino);
+    return nombre.includes(termino) || propietario.includes(termino) || nro.includes(termino);
   });
 
   return (
-    <div className="animate-fade-in relative max-w-full p-4">
-      {/* Cabecera */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 gap-4">
-        <div>
-          <h3 className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">Gestión de Terrenos</h3>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Control de áreas agrícolas y propietarios.</p>
+    <div className="animate-fade-in relative max-w-full">
+      
+      {/* Cabecera Responsiva */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-5 gap-4">
+        <div className="w-full sm:w-auto">
+          <h3 className="text-xl font-bold text-gray-800 dark:text-white tracking-tight">Gestión de Terrenos</h3>
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Control de áreas agrícolas y asignación de propietarios.</p>
         </div>
-        <button onClick={openAddModal} className="w-full sm:w-auto bg-[#1A5729] hover:bg-[#144320] text-white text-sm font-bold px-6 py-2.5 rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all">
-          <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path d="M12 4.5v15m7.5-7.5h-15" /></svg>
+        <button 
+          onClick={openAddModal}
+          className="w-full sm:w-auto justify-center bg-[#1A5729] hover:bg-[#144320] dark:bg-cyan-600 dark:hover:bg-cyan-700 text-white text-sm sm:text-xs font-semibold px-4 py-2.5 sm:py-2 rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
+        >
+          <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
           Nuevo Terreno
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-md mb-6 text-sm font-bold">
-          Error: {error}
+        <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-3 rounded mb-5 text-sm">
+          <span className="font-semibold">Error:</span> {error}
         </div>
       )}
       
-      {/* Tabla */}
-      <div className="bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-slate-700 rounded-2xl shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50/50">
-          <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar sector..." 
-            className="w-full max-w-xs pl-4 pr-4 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-[#1A5729]/20" />
+      {/* Contenedor Principal */}
+      <div className="bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-slate-700/80 rounded-xl shadow-sm overflow-hidden flex flex-col">
+        
+        {/* Buscador Premium */}
+        <div className="px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-slate-700/80 bg-gray-50/40 dark:bg-slate-800/40 flex items-center">
+          <div className="relative w-full sm:w-80">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+            </div>
+            <input 
+              type="text" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por lote, sector o propietario..." 
+              className="w-full pl-9 pr-4 py-2 sm:py-1.5 text-base sm:text-sm border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-[#0F172A] focus:ring-1 focus:ring-[#1A5729] outline-none transition-all dark:text-slate-200 placeholder:text-gray-400"
+            />
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse whitespace-nowrap">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-slate-800 text-[11px] font-black text-gray-400 uppercase tracking-widest border-b">
-                <th className="px-6 py-4 text-center">NRO LOTE</th>
-                <th className="px-6 py-4">SECTOR</th>
-                <th className="px-6 py-4">SUPERFICIE</th>
-                <th className="px-6 py-4">COORDENADAS</th>
-                <th className="px-6 py-4">PROPIETARIO</th>
-                <th className="px-6 py-4 text-right">ACCIONES</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
-              {lotesFiltrados.map((lote, index) => {
-                // Extrayendo variables de forma segura
-                const nroLote = getVal(lote, 'nro_lote');
-                const nombreSector = getVal(lote, 'nombre_sector');
-                const tamano = getVal(lote, 'tamano_hectareas');
-                const latitud = getVal(lote, 'latitud');
-                const longitud = getVal(lote, 'longitud');
-                const propietario = getVal(lote, 'propietario');
-
-                return (
-                  <tr key={nroLote || index} className="hover:bg-green-50/30 transition-colors">
-                    <td className="px-6 py-4 text-center font-mono text-xs text-gray-400">#{nroLote}</td>
-                    <td className="px-6 py-4 font-bold text-gray-800 dark:text-slate-200">{nombreSector}</td>
-                    <td className="px-6 py-4 font-semibold text-[#1A5729]">{tamano} Ha</td>
-                    <td className="px-6 py-4 text-gray-500 font-mono text-[10px]">{latitud}, {longitud}</td>
-                    <td className="px-6 py-4">
-                      <span className="bg-cyan-50 text-cyan-700 px-2 py-1 rounded-md text-[10px] font-bold">
+        {/* Tabla Densidad Corporativa */}
+        <div className="overflow-x-auto custom-scrollbar">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+              <svg className="animate-spin h-6 w-6 text-[#1A5729] dark:text-cyan-600 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p className="text-xs font-semibold tracking-wider uppercase">Cargando terrenos...</p>
+            </div>
+          ) : lotesFiltrados.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p className="text-sm font-medium">No se encontraron terrenos.</p>
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse whitespace-nowrap">
+              <thead>
+                <tr className="bg-gray-50/80 dark:bg-slate-800/80 border-b border-gray-200 dark:border-slate-700 text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+                  <th className="px-4 sm:px-5 py-3 w-16 text-center">Lote</th>
+                  <th className="px-4 sm:px-5 py-3">Sector</th>
+                  <th className="px-4 sm:px-5 py-3">Superficie</th>
+                  <th className="px-4 sm:px-5 py-3">Coordenadas</th>
+                  <th className="px-4 sm:px-5 py-3">Estado</th>
+                  <th className="px-4 sm:px-5 py-3">Propietario</th>
+                  <th className="px-4 sm:px-5 py-3 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-slate-700/80 text-sm">
+                {lotesFiltrados.map((lote, index) => {
+                  const nroLote = getVal(lote, 'nro_lote');
+                  const estado = getVal(lote, 'estado') || 'ACTIVO';
+                  const propietario = getVal(lote, 'propietario');
+                  
+                  return (
+                  <tr key={nroLote || index} className="hover:bg-gray-50/60 dark:hover:bg-slate-800/40 transition-colors group">
+                    <td className="px-4 sm:px-5 py-3 sm:py-2.5 text-center text-gray-400 dark:text-slate-500 font-mono text-xs">#{nroLote}</td>
+                    <td className="px-4 sm:px-5 py-3 sm:py-2.5 font-bold text-gray-800 dark:text-slate-200">{getVal(lote, 'nombre_sector')}</td>
+                    <td className="px-4 sm:px-5 py-3 sm:py-2.5 font-semibold text-[#1A5729] dark:text-cyan-400">{getVal(lote, 'tamano_hectareas')} Ha</td>
+                    <td className="px-4 sm:px-5 py-3 sm:py-2.5 text-gray-500 dark:text-slate-400 font-mono text-[11px]">{getVal(lote, 'latitud')}, {getVal(lote, 'longitud')}</td>
+                    <td className="px-4 sm:px-5 py-3 sm:py-2.5">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
+                        estado === 'ACTIVO' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : 
+                        estado === 'EN PREPARACION' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20' :
+                        'bg-gray-100 text-gray-600 border-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600'
+                      }`}>
+                        {estado}
+                      </span>
+                    </td>
+                    <td className="px-4 sm:px-5 py-3 sm:py-2.5">
+                      <span className="bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-500/10 dark:text-cyan-400 dark:border-cyan-500/20 px-2 py-0.5 rounded text-[10px] font-bold tracking-wide">
                           @{propietario ? String(propietario).toLowerCase() : 'sin propietario'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button onClick={() => openEditModal(lote)} className="p-2 text-gray-400 hover:text-cyan-600 rounded-lg transition-all">
-                          <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg>
+                    <td className="px-4 sm:px-5 py-3 sm:py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-2 sm:gap-1 opacity-100 sm:opacity-60 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEditModal(lote)} title="Editar" className="p-2 sm:p-1.5 text-gray-500 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:text-cyan-400 dark:hover:bg-slate-700 rounded transition-colors">
+                          <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg>
                         </button>
-                        <button onClick={() => handleEliminar(nroLote, nombreSector)} className="p-2 text-gray-400 hover:text-red-600 rounded-lg transition-all">
-                          <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79" /></svg>
+                        <button onClick={() => handleEliminar(nroLote, getVal(lote, 'nombre_sector'))} title="Eliminar" className="p-2 sm:p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-slate-700 rounded transition-colors">
+                          <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                         </button>
                       </div>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                )})}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
-      {/* Modal */}
+      {/* MODAL RESPONSIVO */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-[2px]">
-          <div className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-2xl w-full max-w-lg border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50/50">
-              <h3 className="font-black text-gray-800 dark:text-white uppercase tracking-tighter">{isEditing ? 'Editar Terreno' : 'Registrar Nuevo Lote'}</h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500"><svg fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5"><path d="M6 18L18 6M6 6l12 12" /></svg></button>
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-0 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-[#1E293B] rounded-2xl sm:rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden border border-gray-200 dark:border-slate-700 animate-slide-up sm:animate-none max-h-[90vh] overflow-y-auto custom-scrollbar">
+            
+            <div className="px-5 py-4 sm:py-3.5 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center bg-gray-50/50 dark:bg-slate-800/50 sticky top-0 z-10">
+              <h3 className="text-base font-bold text-gray-800 dark:text-white">
+                {isEditing ? 'Editar Terreno' : 'Nuevo Lote'}
+              </h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 grid grid-cols-2 gap-x-4 gap-y-5">
-              <div className="col-span-2">
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Nombre del Sector *</label>
-                <input name="nombre_sector" required value={formData.nombre_sector} onChange={handleChange} className="w-full border-b-2 py-2 outline-none focus:border-[#1A5729] bg-transparent" placeholder="Ej: Lote Norte" />
+
+            <form onSubmit={handleSubmit} className="p-5 sm:p-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-4">
+                
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Nro. de Lote</label>
+                  <input type="number" name="nro_lote" required disabled={isEditing} value={formData.nro_lote} onChange={handleChange} placeholder="Ej: 101"
+                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-slate-800" />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Nombre del Sector *</label>
+                  <input type="text" name="nombre_sector" required value={formData.nombre_sector} onChange={handleChange} placeholder="Ej: Lote Norte"
+                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Superficie (Ha) *</label>
+                  <input type="number" step="0.01" name="tamano_hectareas" required value={formData.tamano_hectareas} onChange={handleChange} placeholder="Ej: 50.5"
+                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Estado *</label>
+                  <select name="estado" required value={formData.estado} onChange={handleChange}
+                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none"
+                  >
+                    <option value="ACTIVO">ACTIVO</option>
+                    <option value="INACTIVO">INACTIVO</option>
+                    <option value="EN PREPARACION">EN PREPARACIÓN</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Latitud *</label>
+                  <input type="number" step="any" name="latitud" required value={formData.latitud} onChange={handleChange} placeholder="Ej: -17.783"
+                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Longitud *</label>
+                  <input type="number" step="any" name="longitud" required value={formData.longitud} onChange={handleChange} placeholder="Ej: -63.182"
+                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
+                </div>
+
+                {/* Este es el cambio principal: Pasa de ser un <select> a un input de texto/número manual */}
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">ID del Propietario Asignado *</label>
+                  <input type="number" name="id_usuario" required value={formData.id_usuario} onChange={handleChange} placeholder="Ej: 5"
+                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
+                  <p className="text-[10px] text-gray-400 mt-1">Ingrese el ID numérico del usuario (ej. 1 para Administrador).</p>
+                </div>
+
               </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Superficie (Ha) *</label>
-                <input name="tamano_hectareas" type="number" step="0.01" required value={formData.tamano_hectareas} onChange={handleChange} className="w-full border-b-2 py-2 outline-none focus:border-[#1A5729] bg-transparent" placeholder="Ej: 50.5" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Estado *</label>
-                <select name="estado" required value={formData.estado} onChange={handleChange} className="w-full border-b-2 py-2 outline-none focus:border-[#1A5729] bg-transparent text-sm text-gray-700 dark:text-slate-200">
-                  <option value="ACTIVO">ACTIVO</option>
-                  <option value="INACTIVO">INACTIVO</option>
-                  <option value="EN PREPARACION">EN PREPARACIÓN</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Latitud *</label>
-                <input name="latitud" type="number" step="any" required value={formData.latitud} onChange={handleChange} className="w-full border-b-2 py-2 outline-none focus:border-[#1A5729] bg-transparent" placeholder="Ej: -17.783" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Longitud *</label>
-                <input name="longitud" type="number" step="any" required value={formData.longitud} onChange={handleChange} className="w-full border-b-2 py-2 outline-none focus:border-[#1A5729] bg-transparent" placeholder="Ej: -63.182" />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Propietario Asignado *</label>
-                <select name="id_usuario" required value={formData.id_usuario} onChange={handleChange} className="w-full border-b-2 py-2 outline-none focus:border-[#1A5729] bg-transparent text-sm text-gray-700 dark:text-slate-200">
-                  <option value="" disabled>Seleccione un propietario</option>
-                  {usuarios.map(u => (
-                    <option key={u.id_usuario} value={u.id_usuario}>
-                      {u.nombre_razon_social} (@{u.user_name}) - CI: {u.documento_identidad}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-span-2 flex justify-end gap-3 mt-6">
-                <button type="button" onClick={() => setShowModal(false)} className="text-xs font-bold text-gray-400 uppercase">Cancelar</button>
-                <button type="submit" className="bg-[#1A5729] text-white px-8 py-3 rounded-xl text-xs font-black uppercase shadow-lg">
+
+              {/* Botones Invertidos en Móvil */}
+              <div className="mt-8 sm:mt-6 flex flex-col-reverse sm:flex-row items-center justify-end gap-3 sm:gap-2 pt-4 border-t border-gray-100 dark:border-slate-700">
+                <button type="button" onClick={() => setShowModal(false)} className="w-full sm:w-auto px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold sm:font-semibold text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg sm:rounded-md transition-colors">
+                  Cancelar
+                </button>
+                <button type="submit" className="w-full sm:w-auto px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold sm:font-semibold text-white bg-[#1A5729] hover:bg-[#144320] rounded-lg sm:rounded-md shadow-sm transition-colors">
                   {isEditing ? 'Guardar Cambios' : 'Confirmar Registro'}
                 </button>
               </div>
             </form>
+
           </div>
         </div>
       )}

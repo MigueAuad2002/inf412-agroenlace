@@ -121,16 +121,35 @@ export default function Home() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
         </svg>
       )
+    },
+    // =================================================================
+    // NUEVO MÓDULO: DESCARGAS Y RECURSOS
+    // =================================================================
+    {
+      id: 'downloads',
+      titulo: 'Descargas y Recursos',
+      desc: 'Descarga la aplicación móvil (APK), manuales de usuario y plantillas corporativas.',
+      ruta: '/downloads',
+      color: 'text-slate-600 dark:text-slate-400',
+      bg: 'bg-slate-100 dark:bg-slate-500/10',
+      borde: 'hover:border-slate-500 dark:hover:border-slate-400',
+      icono: (
+        <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+        </svg>
+      )
     }
   ];
 
+  // Filtramos los módulos permitidos según el rol
   const modulosPermitidos = modulos.filter((mod) => {
     if (mod.id === 'security') {
-      return user?.id_rol === 1;
+      return user?.id_rol === 1; // Solo Admin ve Seguridad
     }
     if (mod.id === 'produccion') {
-      return [1, 2, 3].includes(user?.id_rol);
+      return [1, 2, 3].includes(user?.id_rol); 
     }
+    // El módulo de descargas está disponible para todos los usuarios logueados
     return true;
   });
 
@@ -209,9 +228,7 @@ export default function Home() {
           <p className="text-sm md:text-base text-gray-500 dark:text-slate-400 mt-1 font-medium">Selecciona un módulo para comenzar.</p>
         </div>
 
-        {/* CAMBIO CLAVE: grid-cols-2 para móviles, md:grid-cols-3 para PC 
-          También ajusté el gap (espacio) para que no estén tan separados en el celular
-        */}
+        {/* CAMBIO CLAVE: grid-cols-2 para móviles, md:grid-cols-3 para PC */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
           
           {modulosPermitidos.map((mod) => (

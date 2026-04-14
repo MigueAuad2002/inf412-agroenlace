@@ -17,6 +17,7 @@ import SecurityAudit from "./pages/SecurityAudit";
 import SecurityRole from "./pages/SecurityRole";
 import AgroLotes from "./pages/AgroLotes";
 import AgroCampanias from "./pages/AgroCampanias";
+import Downloads from "./pages/Downloads";
 
 
 function AnimatedRoutes() {
@@ -48,6 +49,7 @@ function AnimatedRoutes() {
         {/* PRIVADAS GENERALES (Cualquier usuario logueado) */}
         <Route element={<ProtectedRoute />}>
           <Route path="/home" element={<Home />} />
+          <Route path="/downloads" element={<Downloads />} />         
         </Route>
 
         {/* PRIVADAS SOLO ADMINISTRADORES */}

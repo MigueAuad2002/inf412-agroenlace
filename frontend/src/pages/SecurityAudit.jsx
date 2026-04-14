@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/auth_store';
-import * as XLSX from 'xlsx'; // <-- NUEVA IMPORTACIÓN MAGICA
 
 // Función infalible para leer llaves de la BD ignorando mayúsculas/minúsculas
 const getVal = (obj, keyName) => {
@@ -13,12 +12,20 @@ const getVal = (obj, keyName) => {
 const formatDateTime = (dateString) => {
   if (!dateString) return '';
   try {
-    const d = new Date(dateString);
+    // Reemplazamos espacio por T para asegurar que Date() lo entienda bien siempre
+    const isoString = dateString.includes(' ') ? dateString.replace(' ', 'T') : dateString;
+    const d = new Date(isoString);
+
     if (isNaN(d.getTime())) return dateString; 
-    
+
     return d.toLocaleString('es-BO', { 
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      timeZone: 'America/La_Paz',
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit',
       hour12: false 
     });
   } catch (e) {
@@ -40,6 +47,7 @@ export default function SecurityAudit() {
     setLoading(true);
     setError('');
     try {
+      // CONEXIÓN REAL AL BACKEND DE FLASK
       const response = await fetch(`${API_URL}/get-bitacora`, {
         method: 'GET',
         headers: {
@@ -59,6 +67,7 @@ export default function SecurityAudit() {
       const data = await response.json();
       if (!data.success) throw new Error(data.message || 'Error al obtener la bitácora');
       
+      // Flask devuelve el arreglo dentro de 'bitacora'
       setLogs(data.bitacora || []);
       
     } catch (err) {
@@ -89,42 +98,6 @@ export default function SecurityAudit() {
     );
   });
 
-  // ====================================================================
-  // NUEVA FUNCION: EXPORTAR A EXCEL
-  // ====================================================================
-  const handleExportarExcel = () => {
-    if (logsFiltrados.length === 0) {
-      alert("No hay registros para exportar.");
-      return;
-    }
-
-    // 1. Damos formato a los datos para que se vean bonitos en Excel
-    const datosExcel = logsFiltrados.map((log) => ({
-      'Nro.': getVal(log, 'nro'),
-      'Fecha y Hora': formatDateTime(getVal(log, 'fecha_hora')),
-      'Acción Registrada': getVal(log, 'accion'),
-      'Usuario Responsable': getVal(log, 'user_name') ? `@${String(getVal(log, 'user_name')).toLowerCase()}` : 'SISTEMA'
-    }));
-
-    // 2. Creamos la hoja de cálculo
-    const hoja = XLSX.utils.json_to_sheet(datosExcel);
-
-    // Ajustamos el ancho de las columnas
-    hoja['!cols'] = [
-      { wch: 8 },  // Nro
-      { wch: 20 }, // Fecha
-      { wch: 45 }, // Acción
-      { wch: 20 }  // Usuario
-    ];
-
-    // 3. Creamos el libro (workbook) y le pegamos la hoja
-    const libro = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(libro, hoja, "Bitácora_Auditoría");
-
-    // 4. Disparamos la descarga
-    XLSX.writeFile(libro, "Reporte_AgroEnlace_Bitacora.xlsx");
-  };
-
   return (
     <div className="animate-fade-in relative max-w-full">
       {/* Cabecera Responsiva */}
@@ -134,9 +107,8 @@ export default function SecurityAudit() {
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Matriz de auditoría de los últimos 30 días.</p>
         </div>
 
-        {/* BOTON DE EXPORTAR CONECTADO */}
         <button 
-          onClick={handleExportarExcel}
+          onClick={() => alert('Funcionalidad de exportación a PDF/Excel pendiente')}
           className="w-full sm:w-auto justify-center bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-600 text-sm sm:text-xs font-semibold px-4 py-2.5 sm:py-2 rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
         >
           <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-[#1A5729] dark:text-cyan-500">
@@ -178,7 +150,7 @@ export default function SecurityAudit() {
           </div>
         </div>
 
-        {/* Tabla Densidad Corporativa */}
+        {/* Tabla Densidad Corporativa (Mismo estilo que Lotes y Campañas) */}
         <div className="overflow-x-auto custom-scrollbar">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 text-gray-400">

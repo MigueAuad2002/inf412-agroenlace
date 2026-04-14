@@ -1,35 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:jwt_decoder/jwt_decoder.dart'; // Importamos el decodificador
 
 class AuthProvider with ChangeNotifier {
-  // Inicializamos el almacenamiento seguro (la "bóveda" del celular)
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   
   String? _token;
-  bool _isLoading = true; // Empieza en true mientras busca el token guardado
+  Map<String, dynamic>? _userData; // Aquí guardaremos el nombre, rol, etc.
+  bool _isLoading = true;
 
   String? get token => _token;
   bool get isAuthenticated => _token != null;
   bool get isLoading => _isLoading;
+  
+  // Este es el GETTER que le faltaba al Dashboard
+  Map<String, dynamic>? get user => _userData;
 
-  // 1. Al arrancar la app, buscamos si el usuario ya se había logueado antes
   Future<void> checkStoredToken() async {
     _token = await _storage.read(key: 'jwt_token');
+    if (_token != null) {
+      // Si el token existe, lo decodificamos para recuperar los datos del usuario
+      _userData = JwtDecoder.decode(_token!);
+    }
     _isLoading = false;
-    notifyListeners(); // ¡Avisa a toda la app que cambie la pantalla!
+    notifyListeners();
   }
 
-  // 2. Función que llamaremos cuando el Login sea exitoso (desde login_screen.dart)
   Future<void> login(String newToken) async {
     _token = newToken;
+    // Decodificamos el token que viene de Flask
+    _userData = JwtDecoder.decode(newToken); 
+    
     await _storage.write(key: 'jwt_token', value: newToken);
-    notifyListeners(); // ¡Avisa a la app que oculte el Login y muestre el Dashboard!
+    notifyListeners();
   }
 
-  // 3. Función para cerrar sesión
   Future<void> logout() async {
     _token = null;
+    _userData = null;
     await _storage.delete(key: 'jwt_token');
-    notifyListeners(); // ¡Avisa a la app que lo devuelva al Login!
+    notifyListeners();
   }
 }

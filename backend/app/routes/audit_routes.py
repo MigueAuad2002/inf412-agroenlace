@@ -6,11 +6,11 @@ from ..services import create_access_token,decode_access_token
 
 audit_routes = Blueprint('audit_routes', __name__)
 
-# ENDPOINT: OBTENER BITACORA (ULTIMOS 30 DIAS)
+#ENDPOINT: OBTENER BITACORA (ULTIMOS 30 DIAS)
 @audit_routes.route('/api/get-bitacora', methods=['GET'])
 def get_bitacora():
 
-    # AUTENTICACION
+    #AUTENTICACION
     auth_header = request.headers.get('Authorization')
 
     if not auth_header or not auth_header.startswith('Bearer '):
@@ -28,7 +28,7 @@ def get_bitacora():
             'message': 'Usuario No Autenticado.'
         }), 401
     
-    # VALIDAR ROL ADMIN
+    #VALIDAR ROL ADMIN
     json_token = validation.get('payload')
 
     if json_token["role"] != 1:
@@ -40,7 +40,7 @@ def get_bitacora():
     try:
         db.create_connection()
 
-        # CONSULTA
+        #CONSULTA
         bitacora_query = f"""
             SELECT A.NRO, A.fecha_hora, A.accion, B.user_name
             FROM {Config.SCHEMA}.{Config.T_BITACORA} A
@@ -56,13 +56,12 @@ def get_bitacora():
         )
 
         data = []
-        columns = []
-
-        for column in db.cur.description:
-            columns.append(column[0])
-
-        for row in result:
-            data.append(dict(zip(columns, row)))
+        
+        # VALIDACIÓN DE SEGURIDAD (La que tu amigo olvidó)
+        if result is not None and db.cur.description:
+            columns = [column[0] for column in db.cur.description]
+            for row in result:
+                data.append(dict(zip(columns, row)))
 
         # RESPUESTA
         return jsonify({

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/auth_store';
 
 // Función infalible para leer llaves de la BD ignorando mayúsculas/minúsculas
@@ -8,7 +8,7 @@ const getVal = (obj, keyName) => {
   return exactKey ? obj[exactKey] : '';
 };
 
-// Helper para formatear fecha a YYYY-MM-DD para el input type="date"
+// Helper para formatear fecha a YYYY-MM-DD
 const formatDateForInput = (dateString) => {
   if (!dateString) return '';
   try {
@@ -25,6 +25,7 @@ export default function AgroCampanias() {
   const logout = useAuthStore((state) => state.logout); 
   
   const [campanias, setCampanias] = useState([]);
+  const [terrenos, setTerrenos] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,8 +42,11 @@ export default function AgroCampanias() {
     estado: 'PLANIFICADA',
     rendimiento_estimado: '',
     rendimiento_real: '',
-    nro_lote: '' // Ahora se ingresará manualmente
+    nro_lote: ''
   });
+
+  // GUARDIA DE SEGURIDAD CONTRA PETICIONES DOBLES (Strict Mode)
+  const dataFetchedRef = useRef(false);
 
   const cargarCampanias = async () => {
     setLoading(true);
@@ -55,27 +59,63 @@ export default function AgroCampanias() {
           'Authorization': `Bearer ${token}` 
         }
       });
-      const data = await response.json();
       
       if (response.status === 401 || response.status === 403) {
         if (response.status === 401) logout();
         window.location.href = '/login';
         return;
       }
+
+      if (!response.ok) {
+        throw new Error(`Error de conexión con el servidor (Código: ${response.status})`);
+      }
       
+      const data = await response.json();
       if (!data.success) throw new Error(data.message || 'Error al obtener campañas');
       
       setCampanias(data.list_campanias || []);
     } catch (err) {
       setError(err.message);
+      setCampanias([]); 
     } finally {
       setLoading(false);
     }
   };
 
-  // Solo se ejecuta una vez al montar la pantalla
+  const cargarTerrenos = async () => {
+    try {
+      const response = await fetch(`${API_URL}/get-terrenos`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setTerrenos(data.list_terrenos || []);
+        }
+      }
+    } catch (err) {
+      console.warn("Error al cargar terrenos para el select:", err.message);
+      setTerrenos([]); 
+    }
+  };
+
   useEffect(() => {
-    cargarCampanias();
+    // Si ya empezamos a pedir datos, ignoramos el segundo disparo de React Strict Mode
+    if (dataFetchedRef.current) return;
+    dataFetchedRef.current = true;
+
+    const inicializarPantalla = async () => {
+      // Se ejecutan de forma perfectamente secuencial
+      await cargarTerrenos();
+      await cargarCampanias();
+    };
+    
+    inicializarPantalla();
   }, []);
 
   const handleEliminar = async (id_campana, nombre) => {
@@ -89,8 +129,12 @@ export default function AgroCampanias() {
         },
         body: JSON.stringify({ id_campana: id_campana }) 
       });
+      
+      if (!response.ok) throw new Error('Error de servidor al eliminar');
+      
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
+      
       cargarCampanias(); 
     } catch (err) {
       alert(`Error al eliminar: ${err.message}`);
@@ -118,7 +162,8 @@ export default function AgroCampanias() {
       estado: getVal(campania, 'estado') || 'PLANIFICADA',
       rendimiento_estimado: getVal(campania, 'rendimiento_estimado'),
       rendimiento_real: getVal(campania, 'rendimiento_real') || '',
-      nro_lote: getVal(campania, 'nro_lote') 
+      // Mapeo blindado por si el backend manda el ID con otro nombre
+      nro_lote: getVal(campania, 'nro_lote') || getVal(campania, 'id_terreno') || getVal(campania, 'id') || ''
     });
     setShowModal(true);
   };
@@ -127,13 +172,16 @@ export default function AgroCampanias() {
     e.preventDefault();
     const endpoint = isEditing ? '/update-campania' : '/add-campania';
     
-    // Parseamos los números para que Python no se queje
     const payload = {
       ...formData,
       rendimiento_estimado: parseFloat(formData.rendimiento_estimado),
       rendimiento_real: formData.rendimiento_real ? parseFloat(formData.rendimiento_real) : null,
       nro_lote: parseInt(formData.nro_lote, 10)
     };
+
+    if (!isEditing) {
+      delete payload.id_campana; 
+    }
 
     try {
       const response = await fetch(`${API_URL}${endpoint}`, {
@@ -144,11 +192,14 @@ export default function AgroCampanias() {
         },
         body: JSON.stringify(payload)
       });
+      
+      if (!response.ok) throw new Error('Error de servidor al guardar');
+      
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
       
       setShowModal(false);
-      cargarCampanias();
+      cargarCampanias(); 
     } catch (err) {
       alert(`Error: ${err.message}`);
     }
@@ -158,7 +209,6 @@ export default function AgroCampanias() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Filtro de búsqueda optimizado
   const campaniasFiltradas = campanias.filter((c) => {
     const termino = searchTerm.toLowerCase();
     const nombre = String(getVal(c, 'nombre_campana')).toLowerCase();
@@ -187,7 +237,7 @@ export default function AgroCampanias() {
 
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-3 rounded mb-5 text-sm">
-          <span className="font-semibold">Error:</span> {error}
+          <span className="font-semibold">Aviso:</span> {error}
         </div>
       )}
       
@@ -210,7 +260,7 @@ export default function AgroCampanias() {
           </div>
         </div>
 
-        {/* Tabla Densidad Corporativa */}
+        {/* Tabla */}
         <div className="overflow-x-auto custom-scrollbar">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 text-gray-400">
@@ -277,7 +327,7 @@ export default function AgroCampanias() {
         </div>
       </div>
 
-      {/* MODAL RESPONSIVO (Bottom-sheet en móvil) */}
+      {/* MODAL RESPONSIVO */}
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-0 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-[#1E293B] rounded-2xl sm:rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden border border-gray-200 dark:border-slate-700 animate-slide-up sm:animate-none max-h-[90vh] overflow-y-auto custom-scrollbar">
@@ -295,6 +345,12 @@ export default function AgroCampanias() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-4">
                 
                 <div className="md:col-span-2">
+                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">ID Campaña</label>
+                  <input type="text" name="id_campana" disabled value={isEditing ? formData.id_campana : 'AUTO-GENERADO'}
+                    className="w-full px-3 py-2.5 sm:py-2 bg-gray-100 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-md text-base sm:text-sm text-gray-500 font-mono cursor-not-allowed outline-none" />
+                </div>
+
+                <div>
                   <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Nombre de la Campaña *</label>
                   <input type="text" name="nombre_campana" required value={formData.nombre_campana} onChange={handleChange} placeholder="Ej: SOYA INVIERNO 2026"
                     className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none uppercase" />
@@ -306,11 +362,23 @@ export default function AgroCampanias() {
                     className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none uppercase" />
                 </div>
 
-                {/* AQUÍ EL CAMBIO CLAVE: Un input numérico en vez de un <select> */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Nro. de Lote (Terreno) *</label>
-                  <input type="number" name="nro_lote" required value={formData.nro_lote} onChange={handleChange} placeholder="Ej: 1"
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
+                {/* AQUÍ EL MAPEO BLINDADO DE LOTES */}
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Asignar a Lote (Terreno) *</label>
+                  <select name="nro_lote" required value={formData.nro_lote} onChange={handleChange}
+                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none"
+                  >
+                    <option value="" disabled>Seleccione el terreno para esta campaña</option>
+                    {terrenos.map((t, index) => {
+                      // El cazador de IDs para cualquier variante que mande Flask
+                      const idLote = getVal(t, 'nro_lote') || getVal(t, 'id') || getVal(t, 'id_terreno') || getVal(t, 'lote');
+                      return (
+                        <option key={idLote || index} value={idLote}>
+                          Lote #{idLote} - Sector: {getVal(t, 'nombre_sector')} ({getVal(t, 'tamano_hectareas')} Ha)
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
 
                 <div>
@@ -326,6 +394,12 @@ export default function AgroCampanias() {
                 </div>
 
                 <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Rend. Estimado (ton/ha) *</label>
+                  <input type="number" step="0.01" name="rendimiento_estimado" required value={formData.rendimiento_estimado} onChange={handleChange} placeholder="Ej: 3.5"
+                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
+                </div>
+
+                <div>
                   <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Fecha de Siembra *</label>
                   <input type="date" name="fecha_siembra" required value={formData.fecha_siembra} onChange={handleChange}
                     className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none dark:[color-scheme:dark]" />
@@ -337,17 +411,13 @@ export default function AgroCampanias() {
                     className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none dark:[color-scheme:dark]" />
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Rend. Estimado (ton/ha) *</label>
-                  <input type="number" step="0.01" name="rendimiento_estimado" required value={formData.rendimiento_estimado} onChange={handleChange} placeholder="Ej: 3.5"
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Rend. Real (ton/ha) {isEditing ? '' : '(Opcional)'}</label>
-                  <input type="number" step="0.01" name="rendimiento_real" value={formData.rendimiento_real} onChange={handleChange} placeholder="Ej: 3.2"
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
-                </div>
+                {isEditing && (
+                  <div className="md:col-span-2">
+                    <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Rend. Real (ton/ha) (Opcional)</label>
+                    <input type="number" step="0.01" name="rendimiento_real" value={formData.rendimiento_real} onChange={handleChange} placeholder="Ej: 3.2"
+                      className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
+                  </div>
+                )}
 
               </div>
 

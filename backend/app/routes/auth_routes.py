@@ -31,6 +31,8 @@ def register():
     password=data.get('password')
     id_role=4 #ROL NRO.4 =CLIENTE
 
+    accion='REGISTRO DE USUARIO'
+
     if direction:
         direction=direction.upper()
 
@@ -80,6 +82,19 @@ def register():
                 'message':f'Hubo un problema al registrar el usuario'
             })
         
+        get_id_query = f"""
+            SELECT ID_USUARIO 
+            FROM {Config.SCHEMA}.{Config.T_USER} 
+            WHERE USER_NAME = %s 
+            LIMIT 1
+        """
+
+        new_user = db.execute_query(get_id_query, (user_name,), fetchone=True)
+        
+        if new_user:
+            new_user_id = new_user[0]
+            db.insert_log(accion=accion, id_user=new_user_id)
+        
         print(f'Usuario Registrado Exitosamente, {ra} filas afectadas')
         return jsonify({
             'success':True,
@@ -102,6 +117,7 @@ def login():
 
     user_input=data.get('user_input')
     password=data.get('password')
+    accion='INICIO DE SESION'
 
     if not user_input or not password:
         return jsonify({
@@ -152,6 +168,9 @@ def login():
                 'success':False,
                 'message':'Contraseña Incorrecta.'
             })
+        
+        db.insert_log(accion=accion,id_user=user_id)
+        #print(rl)
 
         #INICIO DE SESION EXITOSO: GENERAR TOKEN JWT
         token=create_access_token(

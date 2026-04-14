@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/auth_store';
 
-// Función infalible para leer llaves ignorando mayúsculas/minúsculas
 const getVal = (obj, keyName) => {
   if (!obj) return '';
   const exactKey = Object.keys(obj).find(k => k.toLowerCase() === keyName.toLowerCase());
@@ -27,8 +26,8 @@ export default function AgroLotes() {
     tamano_hectareas: '',
     latitud: '',
     longitud: '',
-    estado: 'ACTIVO',
-    id_usuario: '' // Ahora es un input manual
+    estado: '' 
+    // ¡Adiós id_usuario!
   });
 
   const cargarTerrenos = async () => {
@@ -88,7 +87,7 @@ export default function AgroLotes() {
     setIsEditing(false);
     setFormData({ 
       nro_lote: '', nombre_sector: '', tamano_hectareas: '', 
-      latitud: '', longitud: '', estado: 'ACTIVO', id_usuario: '' 
+      latitud: '', longitud: '', estado: '' 
     });
     setShowModal(true);
   };
@@ -101,9 +100,7 @@ export default function AgroLotes() {
       tamano_hectareas: getVal(lote, 'tamano_hectareas'),
       latitud: getVal(lote, 'latitud'),
       longitud: getVal(lote, 'longitud'),
-      estado: getVal(lote, 'estado') || 'ACTIVO',
-      // Tu backend devuelve T.ID_USUARIO AS ID, así que buscamos la llave 'id'
-      id_usuario: getVal(lote, 'id') || getVal(lote, 'id_usuario') 
+      estado: getVal(lote, 'estado') || 'ACTIVO'
     });
     setShowModal(true);
   };
@@ -116,9 +113,14 @@ export default function AgroLotes() {
       ...formData,
       tamano_hectareas: parseFloat(formData.tamano_hectareas),
       latitud: parseFloat(formData.latitud),
-      longitud: parseFloat(formData.longitud),
-      id_usuario: parseInt(formData.id_usuario, 10)
+      longitud: parseFloat(formData.longitud)
+      // Ya no enviamos id_usuario
     };
+
+    if (!isEditing) {
+      delete payload.estado;
+      delete payload.nro_lote; 
+    }
 
     try {
       const response = await fetch(`${API_URL}${endpoint}`, {
@@ -157,7 +159,7 @@ export default function AgroLotes() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-5 gap-4">
         <div className="w-full sm:w-auto">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white tracking-tight">Gestión de Terrenos</h3>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Control de áreas agrícolas y asignación de propietarios.</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Control de áreas agrícolas de tu propiedad.</p>
         </div>
         <button 
           onClick={openAddModal}
@@ -223,7 +225,7 @@ export default function AgroLotes() {
               <tbody className="divide-y divide-gray-100 dark:divide-slate-700/80 text-sm">
                 {lotesFiltrados.map((lote, index) => {
                   const nroLote = getVal(lote, 'nro_lote');
-                  const estado = getVal(lote, 'estado') || 'ACTIVO';
+                  const estado = getVal(lote, 'estado') || 'EN_DESCANSO';
                   const propietario = getVal(lote, 'propietario');
                   
                   return (
@@ -283,8 +285,8 @@ export default function AgroLotes() {
                 
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Nro. de Lote</label>
-                  <input type="number" name="nro_lote" required disabled={isEditing} value={formData.nro_lote} onChange={handleChange} placeholder="Ej: 101"
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-slate-800" />
+                  <input type="text" name="nro_lote" disabled value={isEditing ? formData.nro_lote : 'AUTO-GENERADO'}
+                    className="w-full px-3 py-2.5 sm:py-2 bg-gray-100 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-md text-base sm:text-sm text-gray-500 font-mono cursor-not-allowed outline-none" />
                 </div>
 
                 <div>
@@ -299,16 +301,19 @@ export default function AgroLotes() {
                     className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Estado *</label>
-                  <select name="estado" required value={formData.estado} onChange={handleChange}
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none"
-                  >
-                    <option value="ACTIVO">ACTIVO</option>
-                    <option value="INACTIVO">INACTIVO</option>
-                    <option value="EN PREPARACION">EN PREPARACIÓN</option>
-                  </select>
-                </div>
+                {isEditing && (
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Estado *</label>
+                    <select name="estado" required value={formData.estado} onChange={handleChange}
+                      className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none"
+                    >
+                      <option value="ACTIVO">ACTIVO</option>
+                      <option value="INACTIVO">INACTIVO</option>
+                      <option value="EN_DESCANSO">EN DESCANSO</option>
+                      <option value="EN PREPARACION">EN PREPARACIÓN</option>
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Latitud *</label>
@@ -322,17 +327,8 @@ export default function AgroLotes() {
                     className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
                 </div>
 
-                {/* Este es el cambio principal: Pasa de ser un <select> a un input de texto/número manual */}
-                <div className="md:col-span-2">
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">ID del Propietario Asignado *</label>
-                  <input type="number" name="id_usuario" required value={formData.id_usuario} onChange={handleChange} placeholder="Ej: 5"
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
-                  <p className="text-[10px] text-gray-400 mt-1">Ingrese el ID numérico del usuario (ej. 1 para Administrador).</p>
-                </div>
-
               </div>
 
-              {/* Botones Invertidos en Móvil */}
               <div className="mt-8 sm:mt-6 flex flex-col-reverse sm:flex-row items-center justify-end gap-3 sm:gap-2 pt-4 border-t border-gray-100 dark:border-slate-700">
                 <button type="button" onClick={() => setShowModal(false)} className="w-full sm:w-auto px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold sm:font-semibold text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg sm:rounded-md transition-colors">
                   Cancelar

@@ -15,12 +15,15 @@ export default function AgroOrdenes() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // NUEVOS ESTADOS PARA FILTRAR REPORTE POR RANGO DE FECHAS
+  // ESTADOS PARA FILTRAR REPORTE POR RANGO DE FECHAS
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
 
+  // ESTADOS DE MODALES
   const [showModal, setShowModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false); // NUEVO MODAL DE REPORTE
+
   const [currentOrder, setCurrentOrder] = useState(null);
   const [empleadoId, setEmpleadoId] = useState('');
 
@@ -126,6 +129,12 @@ export default function AgroOrdenes() {
     setShowAssignModal(true);
   };
 
+  // NUEVA FUNCIÓN PARA ABRIR REPORTE
+  const openReportModal = (orden) => {
+    setCurrentOrder(orden);
+    setShowReportModal(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -220,13 +229,11 @@ export default function AgroOrdenes() {
     }
   };
 
-  // NORMALIZA FECHAS QUE PUEDAN VENIR COMO "2026-05-14T00:00:00.000Z"
   const normalizarFecha = (fecha) => {
     if (!fecha) return '';
     return String(fecha).split('T')[0];
   };
 
-  // FILTRO PRINCIPAL: BUSCADOR + RANGO DE FECHAS
   const filtered = ordenes.filter((o) => {
     const textoBusqueda = searchTerm.toLowerCase();
     const fechaOrden = normalizarFecha(o.fecha_inicio);
@@ -243,7 +250,6 @@ export default function AgroOrdenes() {
     return coincideBusqueda && cumpleFechaDesde && cumpleFechaHasta;
   });
 
-  // ESTADÍSTICAS BASADAS EN LOS FILTROS ACTUALES
   const stats = {
     total: filtered.length,
     pendientes: filtered.filter((o) => o.estado === 'PENDIENTE').length,
@@ -251,7 +257,7 @@ export default function AgroOrdenes() {
     finalizadas: filtered.filter((o) => o.estado === 'FINALIZADA').length,
   };
 
-  // PREPARA LOS DATOS QUE SE EXPORTARÁN
+  // DATOS PARA EXPORTAR ACTUALIZADOS (Incluye evidencia móvil)
   const prepararDatosReporte = () => {
     return filtered.map((o) => ({
       'Nro Orden': `ORD-${String(o.nro_orden).padStart(4, '0')}`,
@@ -262,6 +268,8 @@ export default function AgroOrdenes() {
       Estado: o.estado || '',
       Empleado: o.empleado_username || 'SIN ASIGNAR',
       Supervisor: o.supervisor_username || '',
+      'Reporte del Empleado': o.reporte_texto || 'SIN REPORTE',
+      'Imagen (Base64)': o.url_imagen ? 'FOTO CARGADA' : 'SIN FOTO'
     }));
   };
 
@@ -270,19 +278,16 @@ export default function AgroOrdenes() {
       alert('La fecha desde no puede ser mayor que la fecha hasta.');
       return false;
     }
-
     if (filtered.length === 0) {
       alert('No hay datos para exportar con los filtros actuales.');
       return false;
     }
-
     return true;
   };
 
   const generarNombreArchivo = (extension) => {
     const desde = fechaDesde || 'inicio';
     const hasta = fechaHasta || 'fin';
-
     return `reporte_ordenes_${desde}_${hasta}.${extension}`;
   };
 
@@ -305,19 +310,14 @@ export default function AgroOrdenes() {
     ];
 
     const csvContent = '\ufeff' + csvRows.join('\n');
-    const blob = new Blob([csvContent], {
-      type: 'text/csv;charset=utf-8;',
-    });
-
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
 
     link.href = url;
     link.download = generarNombreArchivo('csv');
-
     document.body.appendChild(link);
     link.click();
-
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
@@ -329,18 +329,19 @@ export default function AgroOrdenes() {
     const worksheet = XLSX.utils.json_to_sheet(datos);
 
     worksheet['!cols'] = [
-      { wch: 14 },
-      { wch: 25 },
-      { wch: 12 },
-      { wch: 14 },
-      { wch: 14 },
-      { wch: 16 },
-      { wch: 22 },
-      { wch: 22 },
+      { wch: 14 }, // Nro
+      { wch: 25 }, // Actividad
+      { wch: 12 }, // ID Campaña
+      { wch: 14 }, // Inicio
+      { wch: 14 }, // Fin
+      { wch: 16 }, // Estado
+      { wch: 22 }, // Emp
+      { wch: 22 }, // Sup
+      { wch: 40 }, // Reporte Empleado
+      { wch: 18 }, // Foto
     ];
 
     const workbook = XLSX.utils.book_new();
-
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Órdenes');
     XLSX.writeFile(workbook, generarNombreArchivo('xlsx'));
   };
@@ -352,6 +353,8 @@ export default function AgroOrdenes() {
 
   return (
     <div className="p-4 md:p-8 animate-in fade-in duration-500 bg-slate-50 min-h-screen max-w-[100vw] overflow-x-hidden">
+      
+      {/* CABECERA */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
@@ -366,21 +369,10 @@ export default function AgroOrdenes() {
         <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
           <div className="relative flex-1 md:w-64">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg
-                className="w-4 h-4 text-slate-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
+              <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-
             <input
               type="text"
               placeholder="BUSCAR ORDEN..."
@@ -395,18 +387,8 @@ export default function AgroOrdenes() {
               onClick={openAddModal}
               className="bg-[#1A5729] hover:bg-[#144320] text-white px-6 py-2.5 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-md flex items-center justify-center gap-2"
             >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={3}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 4v16m8-8H4"
-                />
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
               CREAR ORDEN
             </button>
@@ -429,192 +411,76 @@ export default function AgroOrdenes() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 w-full lg:w-auto">
             <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
-                Desde
-              </label>
-              <input
-                type="date"
-                value={fechaDesde}
-                onChange={(e) => setFechaDesde(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-md text-xs font-bold text-slate-700 outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white shadow-sm"
-              />
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Desde</label>
+              <input type="date" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-md text-xs font-bold text-slate-700 outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white shadow-sm" />
             </div>
 
             <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
-                Hasta
-              </label>
-              <input
-                type="date"
-                value={fechaHasta}
-                onChange={(e) => setFechaHasta(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-md text-xs font-bold text-slate-700 outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white shadow-sm"
-              />
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Hasta</label>
+              <input type="date" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-md text-xs font-bold text-slate-700 outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white shadow-sm" />
             </div>
 
-            <button
-              type="button"
-              onClick={limpiarFiltrosReporte}
-              className="self-end px-4 py-2.5 border border-slate-200 text-slate-500 hover:bg-slate-100 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95"
-            >
+            <button type="button" onClick={limpiarFiltrosReporte} className="self-end px-4 py-2.5 border border-slate-200 text-slate-500 hover:bg-slate-100 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95">
               Limpiar
             </button>
 
-            <button
-              type="button"
-              onClick={exportarCSV}
-              className="self-end bg-[#C5E5F9] hover:bg-[#b4daf3] text-[#1D512E] px-4 py-2.5 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
+            <button type="button" onClick={exportarCSV} className="self-end bg-[#C5E5F9] hover:bg-[#b4daf3] text-[#1D512E] px-4 py-2.5 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               CSV
             </button>
 
-            <button
-              type="button"
-              onClick={exportarXLSX}
-              className="self-end bg-[#1A5729] hover:bg-[#144320] text-white px-4 py-2.5 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-md flex items-center justify-center gap-2"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
+            <button type="button" onClick={exportarXLSX} className="self-end bg-[#1A5729] hover:bg-[#144320] text-white px-4 py-2.5 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-md flex items-center justify-center gap-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               XLSX
             </button>
           </div>
         </div>
       </div>
 
+      {/* DASHBOARD DE KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
         <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
           <div className="bg-slate-100 p-2 md:p-3 rounded-md text-slate-600">
-            <svg
-              className="w-5 h-5 md:w-6 md:h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-              />
-            </svg>
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
           </div>
-
           <div>
-            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              Total Órdenes
-            </p>
-            <p className="text-lg md:text-xl font-black text-slate-800">
-              {stats.total}
-            </p>
+            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Órdenes</p>
+            <p className="text-lg md:text-xl font-black text-slate-800">{stats.total}</p>
           </div>
         </div>
 
         <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
           <div className="bg-amber-50 p-2 md:p-3 rounded-md text-amber-600">
-            <svg
-              className="w-5 h-5 md:w-6 md:h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
-
           <div>
-            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              Pendientes
-            </p>
-            <p className="text-lg md:text-xl font-black text-amber-700">
-              {stats.pendientes}
-            </p>
+            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pendientes</p>
+            <p className="text-lg md:text-xl font-black text-amber-700">{stats.pendientes}</p>
           </div>
         </div>
 
         <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
           <div className="bg-blue-50 p-2 md:p-3 rounded-md text-blue-600">
-            <svg
-              className="w-5 h-5 md:w-6 md:h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
           </div>
-
           <div>
-            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              En Proceso
-            </p>
-            <p className="text-lg md:text-xl font-black text-blue-700">
-              {stats.enProceso}
-            </p>
+            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">En Proceso</p>
+            <p className="text-lg md:text-xl font-black text-blue-700">{stats.enProceso}</p>
           </div>
         </div>
 
         <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
           <div className="bg-emerald-50 p-2 md:p-3 rounded-md text-emerald-600">
-            <svg
-              className="w-5 h-5 md:w-6 md:h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
-
           <div>
-            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              Finalizadas
-            </p>
-            <p className="text-lg md:text-xl font-black text-emerald-700">
-              {stats.finalizadas}
-            </p>
+            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Finalizadas</p>
+            <p className="text-lg md:text-xl font-black text-emerald-700">{stats.finalizadas}</p>
           </div>
         </div>
       </div>
 
+      {/* TABLA PRINCIPAL */}
       <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden w-full">
         <div className="overflow-x-auto w-full custom-scrollbar">
           <table className="w-full min-w-[800px] text-left border-collapse">
@@ -625,6 +491,7 @@ export default function AgroOrdenes() {
                 <th className="px-6 py-4">Fechas</th>
                 <th className="px-6 py-4">Estado</th>
                 <th className="px-6 py-4">Personal</th>
+                <th className="px-6 py-4">Reporte</th>
                 {isBoss && <th className="px-6 py-4 text-center">Acciones</th>}
               </tr>
             </thead>
@@ -632,28 +499,15 @@ export default function AgroOrdenes() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td
-                    colSpan={isBoss ? '6' : '5'}
-                    className="text-center py-20 text-slate-400 font-bold uppercase text-[10px] tracking-widest"
-                  >
-                    Cargando Órdenes...
-                  </td>
+                  <td colSpan={isBoss ? '7' : '6'} className="text-center py-20 text-slate-400 font-bold uppercase text-[10px] tracking-widest">Cargando Órdenes...</td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={isBoss ? '6' : '5'}
-                    className="text-center py-20 text-slate-400 font-bold uppercase text-[10px] tracking-widest"
-                  >
-                    No hay órdenes registradas
-                  </td>
+                  <td colSpan={isBoss ? '7' : '6'} className="text-center py-20 text-slate-400 font-bold uppercase text-[10px] tracking-widest">No hay órdenes registradas</td>
                 </tr>
               ) : (
                 filtered.map((o) => (
-                  <tr
-                    key={o.nro_orden}
-                    className="hover:bg-slate-50 transition-colors group"
-                  >
+                  <tr key={o.nro_orden} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-6 py-4 font-mono text-[10px] font-bold text-slate-400">
                       ORD-{String(o.nro_orden).padStart(4, '0')}
                     </td>
@@ -661,28 +515,11 @@ export default function AgroOrdenes() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="bg-[#1A5729]/10 p-2 rounded-md text-[#1A5729] shrink-0">
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={1.5}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         </div>
-
                         <div className="min-w-0">
-                          <div className="font-black text-slate-800 text-xs uppercase truncate">
-                            {o.tipo_trabajo}
-                          </div>
-                          <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-                            Campaña ID: {o.id_campana}
-                          </div>
+                          <div className="font-black text-slate-800 text-xs uppercase truncate">{o.tipo_trabajo}</div>
+                          <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Campaña ID: {o.id_campana}</div>
                         </div>
                       </div>
                     </td>
@@ -691,12 +528,8 @@ export default function AgroOrdenes() {
                       <div className="flex flex-col gap-1 text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">
                         <div className="flex items-center gap-1.5 text-slate-700">
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                          Inicio:{' '}
-                          {o.fecha_inicio
-                            ? new Date(o.fecha_inicio).toLocaleDateString()
-                            : 'N/A'}
+                          Inicio: {o.fecha_inicio ? new Date(o.fecha_inicio).toLocaleDateString() : 'N/A'}
                         </div>
-
                         {o.fecha_fin && (
                           <div className="flex items-center gap-1.5 text-slate-400">
                             <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
@@ -707,13 +540,8 @@ export default function AgroOrdenes() {
                     </td>
 
                     <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest ${
-                          o.estado === 'FINALIZADA'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : o.estado === 'EN PROCESO'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-amber-100 text-amber-800'
+                      <span className={`px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest ${
+                          o.estado === 'FINALIZADA' ? 'bg-emerald-100 text-emerald-800' : o.estado === 'EN PROCESO' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
                         }`}
                       >
                         {o.estado}
@@ -722,64 +550,36 @@ export default function AgroOrdenes() {
 
                     <td className="px-6 py-4">
                       <div className="text-[10px]">
-                        <div className="font-bold text-slate-700">
-                          <span className="text-slate-400 font-normal">
-                            Emp:
-                          </span>{' '}
-                          {o.empleado_username || 'SIN ASIGNAR'}
-                        </div>
-
-                        <div className="text-slate-500 mt-1">
-                          <span className="text-slate-400 font-normal">
-                            Sup:
-                          </span>{' '}
-                          {o.supervisor_username}
-                        </div>
+                        <div className="font-bold text-slate-700"><span className="text-slate-400 font-normal">Emp:</span> {o.empleado_username || 'SIN ASIGNAR'}</div>
+                        <div className="text-slate-500 mt-1"><span className="text-slate-400 font-normal">Sup:</span> {o.supervisor_username}</div>
                       </div>
+                    </td>
+
+                    {/* COLUMNA REPORTE MÓVIL */}
+                    <td className="px-6 py-4">
+                      {o.reporte_texto || o.url_imagen ? (
+                        <button 
+                          onClick={() => openReportModal(o)}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                          <span className="text-[10px] font-black uppercase tracking-tighter">Evidencia</span>
+                        </button>
+                      ) : (
+                        <span className="text-[9px] font-bold text-slate-300 uppercase italic">Pendiente</span>
+                      )}
                     </td>
 
                     {isBoss && (
                       <td className="px-6 py-4 text-center">
                         <div className="flex justify-center gap-3">
-                          <button
-                            onClick={() => openAssignModal(o)}
-                            className="text-[#1A5729] hover:text-[#0f3418] font-black text-[9px] uppercase tracking-widest flex flex-col items-center gap-1 transition-colors"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-                              />
-                            </svg>
+                          <button onClick={() => openAssignModal(o)} className="text-[#1A5729] hover:text-[#0f3418] font-black text-[9px] uppercase tracking-widest flex flex-col items-center gap-1 transition-colors">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                             Asignar
                           </button>
 
-                          <button
-                            onClick={() =>
-                              handleDelete(o.nro_orden, o.tipo_trabajo)
-                            }
-                            className="text-red-500 hover:text-red-700 font-black text-[9px] uppercase tracking-widest flex flex-col items-center gap-1 transition-colors"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
+                          <button onClick={() => handleDelete(o.nro_orden, o.tipo_trabajo)} className="text-red-500 hover:text-red-700 font-black text-[9px] uppercase tracking-widest flex flex-col items-center gap-1 transition-colors">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             Borrar
                           </button>
                         </div>
@@ -792,6 +592,60 @@ export default function AgroOrdenes() {
           </table>
         </div>
       </div>
+
+      {/* MODAL PARA VER REPORTE E IMAGEN (BASE64) */}
+      {showReportModal && currentOrder && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95">
+            <div className="bg-[#1A5729] px-6 py-4 flex justify-between items-center text-white">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-widest">Evidencia de Campo</h3>
+                <p className="text-[10px] text-emerald-100 font-bold uppercase mt-0.5">ORD-{String(currentOrder.nro_orden).padStart(4, '0')} - {currentOrder.tipo_trabajo}</p>
+              </div>
+              <button onClick={() => setShowReportModal(false)} className="hover:bg-white/10 p-2 rounded-full transition-colors">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            
+            <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Reporte Escrito</label>
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 min-h-[150px]">
+                  <p className="text-sm text-slate-700 leading-relaxed font-medium italic">
+                    {currentOrder.reporte_texto || "El empleado no proporcionó un reporte escrito."}
+                  </p>
+                </div>
+                <div className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-500">
+                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                  Operario: {currentOrder.empleado_username}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Evidencia Fotográfica</label>
+                {currentOrder.url_imagen ? (
+                  <div className="rounded-lg overflow-hidden border border-slate-200 shadow-inner bg-slate-100 flex items-center justify-center">
+                    <img 
+                      src={currentOrder.url_imagen.startsWith('data:') ? currentOrder.url_imagen : `data:image/jpeg;base64,${currentOrder.url_imagen}`} 
+                      alt="Evidencia del Trabajo" 
+                      className="w-full h-auto object-cover max-h-[300px] hover:scale-[1.03] transition-transform duration-300"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-[200px] bg-slate-100 rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400">
+                    <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <span className="text-[10px] font-bold uppercase">Sin imagen adjunta</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="bg-slate-50 px-8 py-4 border-t border-slate-200 flex justify-end">
+              <button onClick={() => setShowReportModal(false)} className="px-6 py-2 bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest rounded shadow-md hover:bg-slate-700 transition-all">Cerrar Vista</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL 1: CREAR ORDEN */}
       {showModal && (
@@ -811,18 +665,8 @@ export default function AgroOrdenes() {
                 onClick={() => setShowModal(false)}
                 className="hover:bg-white/20 p-2 rounded-full transition-colors"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
@@ -841,15 +685,11 @@ export default function AgroOrdenes() {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-slate-300 rounded-lg text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-2 focus:ring-[#1A5729]/20 bg-white transition-all shadow-sm"
                   >
-                    <option value="" disabled>
-                      -- SELECCIONE ACTIVIDAD --
-                    </option>
+                    <option value="" disabled>-- SELECCIONE ACTIVIDAD --</option>
                     <option value="SIEMBRA">SIEMBRA</option>
                     <option value="FUMIGACION">FUMIGACIÓN</option>
                     <option value="COSECHA">COSECHA</option>
-                    <option value="PREPARACION_SUELO">
-                      PREPARACIÓN DE SUELO
-                    </option>
+                    <option value="PREPARACION_SUELO">PREPARACIÓN DE SUELO</option>
                   </select>
                 </div>
 
@@ -891,18 +731,8 @@ export default function AgroOrdenes() {
 
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg
-                        className="w-5 h-5 text-slate-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
+                      <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
 
@@ -913,10 +743,7 @@ export default function AgroOrdenes() {
                       onChange={handleChange}
                       className="w-full pl-10 pr-10 py-3 border border-slate-300 rounded-lg text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-2 focus:ring-[#1A5729]/20 bg-white cursor-pointer transition-all shadow-sm appearance-none"
                     >
-                      <option value="" disabled>
-                        -- SELECCIONE CAMPAÑA --
-                      </option>
-
+                      <option value="" disabled>-- SELECCIONE CAMPAÑA --</option>
                       {campanias.map((camp) => (
                         <option key={camp.id_campana} value={camp.id_campana}>
                           {camp.nombre_campana} (Lote #{camp.nro_lote})
@@ -925,18 +752,8 @@ export default function AgroOrdenes() {
                     </select>
 
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                      <svg
-                        className="w-4 h-4 text-slate-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M19 9l-7 7-7-7"
-                        />
+                      <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
                   </div>
@@ -982,18 +799,8 @@ export default function AgroOrdenes() {
                 onClick={() => setShowAssignModal(false)}
                 className="hover:bg-white/20 p-2 rounded-full transition-colors"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
@@ -1001,18 +808,8 @@ export default function AgroOrdenes() {
             <form onSubmit={handleAssign} className="p-6 bg-slate-50">
               <div className="mb-6 bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex items-start gap-4">
                 <div className="bg-blue-50 text-blue-600 p-2.5 rounded-lg shrink-0">
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M21 13.255A23.931 23.931 0 01112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 01112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
 
@@ -1036,18 +833,8 @@ export default function AgroOrdenes() {
 
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg
-                      className="w-5 h-5 text-slate-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                      />
+                    <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
 
@@ -1057,10 +844,7 @@ export default function AgroOrdenes() {
                     onChange={(e) => setEmpleadoId(e.target.value)}
                     className="w-full pl-10 pr-10 py-3 border border-slate-300 rounded-lg text-xs font-bold uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-white cursor-pointer transition-all shadow-sm appearance-none"
                   >
-                    <option value="" disabled>
-                      -- DESPLIEGUE PARA SELECCIONAR --
-                    </option>
-
+                    <option value="" disabled>-- DESPLIEGUE PARA SELECCIONAR --</option>
                     {empleados.map((emp) => (
                       <option key={emp.id_usuario} value={emp.id_usuario}>
                         {emp.user_name} - {emp.nombre_razon_social}
@@ -1069,18 +853,8 @@ export default function AgroOrdenes() {
                   </select>
 
                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <svg
-                      className="w-4 h-4 text-slate-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19 9l-7 7-7-7"
-                      />
+                    <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
                 </div>

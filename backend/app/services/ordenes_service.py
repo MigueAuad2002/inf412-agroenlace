@@ -4,26 +4,23 @@ from ..config import db
 def get_ordenes_logic(user_id, role_id):
     try:
         db.create_connection()
-        
-        # Si es Empleado (Rol 3), filtramos por su ID.
         employee_id_filter = user_id if role_id == 3 else None
-        
         result = ordenes_repo.get_work_orders_db(employee_id_filter)
         
         data = []
         if result:
-            # Mapeamos manualmente según el orden del SELECT en el repo
             columns = [
                 'nro_orden', 'tipo_trabajo', 'fecha_inicio', 'fecha_fin', 
-                'fecha_calculo', 'estado', 'id_campana', 'id_supervisor', 
-                'supervisor_username', 'id_empleado', 'empleado_username'
+                'estado', 'id_campana', 'id_supervisor', 'supervisor_username', 
+                'id_empleado', 'empleado_username', 
+                'reporte_texto', 'url_imagen' # AGREGAR ESTAS DOS
             ]
             for row in result:
                 data.append(dict(zip(columns, row)))
 
         return {
             'success': True,
-            'message': 'Órdenes de trabajo obtenidas exitosamente.',
+            'message': 'Órdenes obtenidas exitosamente.',
             'list_ordenes': data
         }, 200
 

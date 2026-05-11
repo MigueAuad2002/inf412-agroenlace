@@ -1,34 +1,30 @@
 from ..config import Config, db
 
 def get_work_orders_db(employee_id=None):
-    """Consulta órdenes. Si recibe employee_id, filtra solo las de ese empleado."""
     query = f"""
         SELECT 
             o.nro_orden,
             o.tipo_trabajo,
             o.fecha_inicio,
             o.fecha_fin,
-            o.fecha_calculo,
             o.estado,
             o.id_campana,
             o.id_supervisor,
             us.user_name AS supervisor_username,
             o.id_empleado,
-            ue.user_name AS empleado_username
+            ue.user_name AS empleado_username,
+            o.reporte_texto, -- NUEVA COLUMNA
+            o.url_imagen    -- NUEVA COLUMNA
         FROM {Config.SCHEMA}.{Config.T_ORDEN} o
-        LEFT JOIN {Config.SCHEMA}.{Config.T_USER} us
-            ON us.id_usuario = o.id_supervisor
-        LEFT JOIN {Config.SCHEMA}.{Config.T_USER} ue
-            ON ue.id_usuario = o.id_empleado
+        LEFT JOIN {Config.SCHEMA}.{Config.T_USER} us ON us.id_usuario = o.id_supervisor
+        LEFT JOIN {Config.SCHEMA}.{Config.T_USER} ue ON ue.id_usuario = o.id_empleado
     """
-    
     params = ()
     if employee_id:
         query += " WHERE o.id_empleado = %s"
         params = (employee_id,)
         
     query += " ORDER BY o.nro_orden DESC"
-    
     return db.execute_query(query, params, fetchall=True)
 
 def insert_work_order_db(tipo, f_inicio, f_fin, id_campana, id_sup):

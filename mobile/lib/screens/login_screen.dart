@@ -87,8 +87,8 @@ class _LoginScreenState extends State<LoginScreen> {
   // Método auxiliar para el botón DEMO
   void _cargarDemo() {
     setState(() {
-      _userController.text = 'admin@agro.com';
-      _passwordController.text = 'admin123';
+      _userController.text = 'emple@agroenlace.com';
+      _passwordController.text = '12345678';
       _errorMessage = '';
     });
   }
@@ -219,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   textInputAction: TextInputAction.next,
                                   style: const TextStyle(fontSize: 14),
                                   decoration: InputDecoration(
-                                    hintText: 'admin@agro.com',
+                                    hintText: 'emple@agroenlace.com',
                                     hintStyle: TextStyle(color: Colors.grey.shade400),
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                     filled: true,
@@ -360,7 +360,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                                 Text(
-                                  'admin@agro.com / admin123',
+                                  'emple@agroenlace.com / 12345678',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,

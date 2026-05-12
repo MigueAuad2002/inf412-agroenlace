@@ -16,10 +16,11 @@ def register():
             'success':False,
             'message':'Peticion Vacia.'
         })
-    
+
     response_data,status_code=auth_service.register_new_user(data)
 
     return jsonify(response_data),status_code
+
 
 #INICIO DE SESION
 @auth_routes.route('/api/login',methods=['POST'])

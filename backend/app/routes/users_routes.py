@@ -214,8 +214,6 @@ def add_users():
     direction = data.get('dir')
     password = data.get('password')
     
-    # Aquí puedes recibir el rol desde el frontend si el admin puede crear distintos roles,
-    # o dejarlo fijo en 4 como lo tenías.
     id_role = data.get('id_role', 4) 
 
     if direction:

@@ -11,3 +11,7 @@ __pycache__/
 #ARCHIVOS VSCODE
 .vscode/
 .history/
+
+#ENTORNOS VIRTUALES
+venv
+.venv

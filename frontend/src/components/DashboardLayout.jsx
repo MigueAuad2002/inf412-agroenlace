@@ -45,7 +45,8 @@ export default function DashboardLayout() {
       submenus: [
         {nombre:'Terrenos - Lotes',ruta:'/agro/lote'},
         {nombre:'Campañas de Siembra/Cosecha',ruta:'/agro/campana'},
-        {nombre:'Ordenes de Trabajo',ruta:'/agro/ordenes'}
+        {nombre:'Ordenes de Trabajo',ruta:'/agro/ordenes'},
+        {nombre:'Gestion de Maquinaria',ruta:'/agro/maquinaria'}
       ]
     },
     {
@@ -221,7 +222,7 @@ export default function DashboardLayout() {
               <div className="w-px h-4 bg-gray-200 dark:bg-slate-600 mx-0.5"></div>
 
               <button
-                onClick={() => navigate('/perfil')}
+                onClick={() => navigate('/profile')}
                 className="p-2 text-gray-500 hover:text-[#5B9D1E] dark:text-slate-400 dark:hover:text-[#7BC636] hover:bg-white dark:hover:bg-slate-700 rounded-full transition-all hover:shadow-sm flex items-center justify-center"
                 title="Mi Perfil"
               >

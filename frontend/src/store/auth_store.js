@@ -59,5 +59,13 @@ export const useAuthStore = create((set) => ({
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     set({ token: null, user: null });
-  }
+  },
+
+  //ACCION PARA ACTUALIZAR DATOS DEL USUARIO EN SESION
+  updateUser: (updatedUserData) => {
+    const currentUser = get().user;
+    const newUser = { ...currentUser, ...updatedUserData };
+    localStorage.setItem('user', JSON.stringify(newUser));
+    set({ user: newUser });
+  },
 }));

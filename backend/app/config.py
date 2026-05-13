@@ -26,6 +26,7 @@ class Config:
     T_ORDEN='ORDEN_TRABAJO'
     T_TERRENO='TERRENO'
     T_CAMPANA='CAMPANA_CULTIVO'
+    T_MAQUINA='MAQUINARIA'
     
 
 db=PostgreSQL(

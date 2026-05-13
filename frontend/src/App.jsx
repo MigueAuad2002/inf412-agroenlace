@@ -17,7 +17,9 @@ import SecurityAudit from "./pages/SecurityAudit";
 import SecurityRole from "./pages/SecurityRole";
 import AgroLotes from "./pages/AgroLotes";
 import AgroCampanias from "./pages/AgroCampanias";
+import AgroMaquinarias from "./pages/AgroMaquinarias";
 import Downloads from "./pages/Downloads";
+import Profile from "./pages/Profile";
 
 
 function AnimatedRoutes() {
@@ -49,7 +51,8 @@ function AnimatedRoutes() {
         {/* PRIVADAS GENERALES (Cualquier usuario logueado) */}
         <Route element={<ProtectedRoute />}>
           <Route path="/home" element={<Home />} />
-          <Route path="/downloads" element={<Downloads />} />         
+          <Route path="/downloads" element={<Downloads />} />
+          <Route path='/profile' element={<Profile/>}/>
         </Route>
 
         {/* PRIVADAS SOLO ADMINISTRADORES */}
@@ -59,10 +62,12 @@ function AnimatedRoutes() {
             <Route path="/security/users" element={<SecurityUsers />} />
             <Route path="/security/roles" element={<SecurityRole/>} />
             <Route path="/security/audit" element={<SecurityAudit/>} />
-            
-            {/* Rutas en construcción*/}
             <Route path="/agro/lote" element={<AgroLotes />} />
             <Route path="/agro/campana" element={<AgroCampanias/>} />
+            <Route path="/agro/maquinaria" element={<AgroMaquinarias/>} />
+
+            {/* Rutas en construcción*/}
+            
             <Route path="/agro/ordenes" element={<div className="p-8 font-bold text-gray-500">Configuración de Ordenes Trabajo (Próximamente)</div>} />
 
           </Route>

@@ -24,3 +24,6 @@ __pycache__/
 #SISTEMA OPERATIVO
 .DS_Store
 Thumbs.db
+
+#ENTORNOS VIRTUALES
+.venv

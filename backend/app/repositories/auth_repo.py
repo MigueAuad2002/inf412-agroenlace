@@ -46,7 +46,7 @@ def extract_login_user(user_input):
     query=f"""
             SELECT ID_USUARIO, USER_NAME, PASSWORD_HASH, NOMBRE_RAZON_SOCIAL, CORREO, ID_ROL, ESTADO_CUENTA
             FROM {Config.SCHEMA}.{Config.T_USER}
-            WHERE CORREO = %s OR USER_NAME = %s
+            WHERE UPPER(CORREO) = %s OR USER_NAME = %s
     """
 
     params=(user_input,user_input)

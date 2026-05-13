@@ -1,8 +1,6 @@
-from flask import Blueprint,redirect,request,jsonify
-from werkzeug.security import generate_password_hash,check_password_hash
+from flask import Blueprint,request,jsonify
 
-from ..config import db,Config
-from ..services import create_access_token,auth_service
+from ..services import auth_service
 
 auth_routes=Blueprint('auth_routes',__name__)
 

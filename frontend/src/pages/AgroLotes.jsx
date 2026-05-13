@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/auth_store';
+import MapPicker from '../components/MapPicker';
 
 const getVal = (obj, keyName) => {
   if (!obj) return '';
@@ -19,6 +20,7 @@ export default function AgroLotes() {
 
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   
   const [formData, setFormData] = useState({
     nro_lote: '',
@@ -85,6 +87,7 @@ export default function AgroLotes() {
 
   const openAddModal = () => {
     setIsEditing(false);
+    setShowMapPicker(false);
     setFormData({ 
       nro_lote: '', nombre_sector: '', tamano_hectareas: '', 
       latitud: '', longitud: '', estado: '' 
@@ -94,6 +97,7 @@ export default function AgroLotes() {
 
   const openEditModal = (lote) => {
     setIsEditing(true);
+    setShowMapPicker(false);
     setFormData({
       nro_lote: getVal(lote, 'nro_lote'),
       nombre_sector: getVal(lote, 'nombre_sector'),
@@ -142,6 +146,14 @@ export default function AgroLotes() {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleMapCoordinates = (lat, lng) => {
+    setFormData({ 
+      ...formData, 
+      latitud: lat.toFixed(6), 
+      longitud: lng.toFixed(6) 
+    });
   };
 
   const lotesFiltrados = lotes.filter((lote) => {
@@ -266,79 +278,94 @@ export default function AgroLotes() {
         </div>
       </div>
 
-      {/* MODAL RESPONSIVO */}
+      {/* MODAL NUEVO LOTE*/}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-0 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-[#1E293B] rounded-2xl sm:rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden border border-gray-200 dark:border-slate-700 animate-slide-up sm:animate-none max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col max-h-[90vh]">
             
-            <div className="px-5 py-4 sm:py-3.5 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center bg-gray-50/50 dark:bg-slate-800/50 sticky top-0 z-10">
-              <h3 className="text-base font-bold text-gray-800 dark:text-white">
-                {isEditing ? 'Editar Terreno' : 'Nuevo Lote'}
-              </h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
-                <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gray-50/50 dark:bg-slate-800/50">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+                  {isEditing ? `Editar Terreno: ${formData.nombre_sector}` : 'Registrar Nuevo Terreno'}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Complete la información técnica y geográfica del lote.</p>
+              </div>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-5 sm:p-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-4">
-                
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Nro. de Lote</label>
-                  <input type="text" name="nro_lote" disabled value={isEditing ? formData.nro_lote : 'AUTO-GENERADO'}
-                    className="w-full px-3 py-2.5 sm:py-2 bg-gray-100 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-md text-base sm:text-sm text-gray-500 font-mono cursor-not-allowed outline-none" />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Nombre del Sector *</label>
-                  <input type="text" name="nombre_sector" required value={formData.nombre_sector} onChange={handleChange} placeholder="Ej: Lote Norte"
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Superficie (Ha) *</label>
-                  <input type="number" step="0.01" name="tamano_hectareas" required value={formData.tamano_hectareas} onChange={handleChange} placeholder="Ej: 50.5"
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
-                </div>
-
-                {isEditing && (
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Estado *</label>
-                    <select name="estado" required value={formData.estado} onChange={handleChange}
-                      className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none"
-                    >
-                      <option value="ACTIVO">ACTIVO</option>
-                      <option value="INACTIVO">INACTIVO</option>
-                      <option value="EN_DESCANSO">EN DESCANSO</option>
-                      <option value="EN PREPARACION">EN PREPARACIÓN</option>
-                    </select>
+            <div className="flex flex-col md:flex-row overflow-y-auto">
+              {/* Columna Izquierda: Formulario */}
+              <form onSubmit={handleSubmit} id="loteForm" className="flex-1 p-6 space-y-5 border-r border-slate-100 dark:border-slate-800">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Nombre del Sector</label>
+                    <input type="text" name="nombre_sector" required value={formData.nombre_sector} onChange={handleChange}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#1A5729] outline-none" />
                   </div>
-                )}
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Latitud *</label>
-                  <input type="number" step="any" name="latitud" required value={formData.latitud} onChange={handleChange} placeholder="Ej: -17.783"
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Superficie (Hectáreas)</label>
+                    <div className="relative">
+                      <input type="number" step="0.01" name="tamano_hectareas" required value={formData.tamano_hectareas} onChange={handleChange}
+                        className="w-full pl-3 pr-10 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#1A5729] outline-none" />
+                      <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">Ha</span>
+                    </div>
+                  </div>
+
+                  {isEditing && (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Estado Operativo</label>
+                      <select name="estado" required value={formData.estado} onChange={handleChange}
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-[#1A5729] outline-none">
+                        <option value="ACTIVO">ACTIVO</option>
+                        <option value="EN PREPARACION">EN PREPARACIÓN</option>
+                        <option value="EN_DESCANSO">EN DESCANSO</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Latitud</label>
+                    <input type="text" disabled value={formData.latitud} 
+                      className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700 rounded-lg font-mono text-xs" />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Longitud</label>
+                    <input type="text" disabled value={formData.longitud} 
+                      className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700 rounded-lg font-mono text-xs" />
+                  </div>
                 </div>
+              </form>
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Longitud *</label>
-                  <input type="number" step="any" name="longitud" required value={formData.longitud} onChange={handleChange} placeholder="Ej: -63.182"
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-[#1A5729] outline-none" />
-                </div>
-
+              {/* Columna Derecha: Mapa */}
+              <div className="flex-1 p-6 bg-slate-50/50 dark:bg-slate-900/20">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">Ubicación Geoespacial</label>
+                <MapPicker 
+                  latitud={formData.latitud} 
+                  longitud={formData.longitud}
+                  onCoordinatesChange={handleMapCoordinates}
+                />
+                <p className="mt-3 text-[10px] text-slate-400 italic">
+                  * Haga clic en cualquier punto del mapa para capturar las coordenadas exactas del lote.
+                </p>
               </div>
+            </div>
 
-              <div className="mt-8 sm:mt-6 flex flex-col-reverse sm:flex-row items-center justify-end gap-3 sm:gap-2 pt-4 border-t border-gray-100 dark:border-slate-700">
-                <button type="button" onClick={() => setShowModal(false)} className="w-full sm:w-auto px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold sm:font-semibold text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg sm:rounded-md transition-colors">
-                  Cancelar
-                </button>
-                <button type="submit" className="w-full sm:w-auto px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold sm:font-semibold text-white bg-[#1A5729] hover:bg-[#144320] rounded-lg sm:rounded-md shadow-sm transition-colors">
-                  {isEditing ? 'Guardar Cambios' : 'Confirmar Registro'}
-                </button>
-              </div>
-            </form>
-
+            {/* Footer del Modal */}
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-[#1E293B] flex justify-end gap-3">
+              <button type="button" onClick={() => setShowModal(false)} 
+                className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                Descartar
+              </button>
+              <button type="submit" form="loteForm"
+                className="px-6 py-2 bg-[#1A5729] dark:bg-[#5B9D1E] text-white text-sm font-bold rounded-lg shadow-lg shadow-emerald-900/20 hover:scale-[1.02] active:scale-95 transition-all">
+                {isEditing ? 'Actualizar Terreno' : 'Registrar Lote'}
+              </button>
+            </div>
           </div>
         </div>
       )}

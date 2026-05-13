@@ -5,7 +5,7 @@ from .aux_functs import decode_access_token
 def fetch_roles(auth_header:str)->tuple[dict,int]:
     
     if not auth_header or not auth_header.startswith('Bearer '):
-        return {'success':True, 'message':'Usuario No Autenticado.'},401
+        return {'success':False, 'message':'Usuario No Autenticado.'},401
     
     token=auth_header.split(" ")[1]
     validation=decode_access_token(token)

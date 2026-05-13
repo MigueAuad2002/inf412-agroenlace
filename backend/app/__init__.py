@@ -1,7 +1,7 @@
 from .config import Config
 from flask import Flask
 from flask_cors import CORS 
-from .routes import main_routes,auth_routes,users_routes,ordenes_routes,terrenos_routes,campanias_routes, audit_routes,roles_routes
+from .routes import main_routes,auth_routes,users_routes,ordenes_routes,terrenos_routes,campanias_routes, audit_routes,roles_routes,profile_routes,maquinaria_routes
 
 
 def create_app():
@@ -17,6 +17,8 @@ def create_app():
     app.register_blueprint(terrenos_routes)
     app.register_blueprint(campanias_routes)
     app.register_blueprint(roles_routes)
+    app.register_blueprint(profile_routes)
+    app.register_blueprint(maquinaria_routes)
 
     CORS(
         app,

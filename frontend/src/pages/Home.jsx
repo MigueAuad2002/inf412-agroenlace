@@ -122,9 +122,6 @@ export default function Home() {
         </svg>
       )
     },
-    // =================================================================
-    // NUEVO MÓDULO: DESCARGAS Y RECURSOS
-    // =================================================================
     {
       id: 'downloads',
       titulo: 'Descargas y Recursos',
@@ -196,7 +193,7 @@ export default function Home() {
             <div className="w-px h-4 bg-gray-200 dark:bg-slate-600 mx-0.5"></div>
 
             <button
-              onClick={() => navigate('/perfil')}
+              onClick={() => navigate('/profile')}
               className="p-1.5 md:p-2 text-gray-500 hover:text-[#5B9D1E] dark:text-slate-400 dark:hover:text-[#7BC636] hover:bg-white dark:hover:bg-slate-700 rounded-full transition-all hover:shadow-sm flex items-center justify-center"
               title="Mi Perfil"
             >

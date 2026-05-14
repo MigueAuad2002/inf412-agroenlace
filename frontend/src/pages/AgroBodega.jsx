@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/auth_store';
+import ExcelJS from 'exceljs';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -148,6 +149,194 @@ export default function AgroBodega() {
 
   const isStockBajo = (p) => parseFloat(p.stock_actual) <= parseFloat(p.stock_minimo);
 
+  const buildExportRows = () => productos.map(p => ({
+    'ID':               `ID-${String(p.id_producto).padStart(4, '0')}`,
+    'Nombre Producto':  p.nombre_producto,
+    'Categoría':        p.categoria,
+    'Unidad de Medida': p.unidad_medida || '',
+    'Precio Unitario':  p.precio_unitario ?? '',
+    'Stock Actual':     p.stock_actual,
+    'Stock Mínimo':     p.stock_minimo,
+    'Estado Stock':     isStockBajo(p) ? 'STOCK BAJO' : 'OK',
+  }));
+
+  const exportCSV = () => {
+    const rows = buildExportRows();
+    const headers = Object.keys(rows[0] || {});
+    const csv = [
+      headers.join(','),
+      ...rows.map(r => headers.map(h => `"${String(r[h]).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bodega_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportXLSX = async () => {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'AgroEnlace';
+    wb.created = new Date();
+
+    const ws = wb.addWorksheet('Bodega', { views: [{ state: 'frozen', ySplit: 4 }] });
+
+    // Anchos de columna: ID, Nombre, Categoría, Unidad, Precio, Stock Actual, Stock Mín, Estado
+    ws.columns = [
+      { width: 10 }, { width: 36 }, { width: 20 }, { width: 18 },
+      { width: 18 }, { width: 16 }, { width: 16 }, { width: 16 },
+    ];
+
+    const COLOR_VERDE   = '1A5729';
+    const COLOR_VERDE2  = '2D7A3A';
+    const COLOR_HEADER  = 'F1F5F9';
+    const COLOR_FILA_A  = 'F0FDF4';
+    const COLOR_BAJO    = 'FEF3C7';
+    const COLOR_BAJO_TX = '92400E';
+
+    const styleTitle = {
+      font: { bold: true, size: 15, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + COLOR_VERDE } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    };
+    const styleSubtitle = {
+      font: { italic: true, size: 9, color: { argb: 'FF64748B' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    };
+    const styleColHeader = (center = false) => ({
+      font: { bold: true, size: 9, color: { argb: 'FF' + COLOR_VERDE } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + COLOR_HEADER } },
+      alignment: { horizontal: center ? 'center' : 'left', vertical: 'middle', wrapText: true },
+      border: {
+        top:    { style: 'medium', color: { argb: 'FF' + COLOR_VERDE2 } },
+        bottom: { style: 'medium', color: { argb: 'FF' + COLOR_VERDE2 } },
+        left:   { style: 'thin',   color: { argb: 'FFE2E8F0' } },
+        right:  { style: 'thin',   color: { argb: 'FFE2E8F0' } },
+      },
+    });
+    const thinBorder = {
+      top:    { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      left:   { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      right:  { style: 'thin', color: { argb: 'FFE2E8F0' } },
+    };
+
+    // --- Fila 1: Título ---
+    ws.addRow(['AGROENLACE — CONTROL DE BODEGA', '', '', '', '', '', '', '']);
+    ws.mergeCells('A1:H1');
+    ws.getRow(1).height = 30;
+    ws.getCell('A1').style = styleTitle;
+
+    // --- Fila 2: Subtítulo ---
+    const ahora = new Date();
+    const fecha = ahora.toLocaleDateString('es-BO', { year: 'numeric', month: 'long', day: 'numeric' });
+    const hora  = ahora.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' });
+    ws.addRow([`Reporte generado el ${fecha} a las ${hora}`, '', '', '', '', '', '', '']);
+    ws.mergeCells('A2:H2');
+    ws.getRow(2).height = 18;
+    ws.getCell('A2').style = styleSubtitle;
+
+    // --- Fila 3: Espacio ---
+    ws.addRow([]);
+    ws.getRow(3).height = 6;
+
+    // --- Fila 4: Encabezados ---
+    const headerRow = ws.addRow([
+      'ID', 'NOMBRE PRODUCTO', 'CATEGORÍA', 'UNIDAD DE MEDIDA',
+      'PRECIO UNIT. (Bs.)', 'STOCK ACTUAL', 'STOCK MÍNIMO', 'ESTADO',
+    ]);
+    headerRow.height = 22;
+    headerRow.eachCell(cell => {
+      const isNum = ['E', 'F', 'G', 'H'].includes(cell.col);
+      cell.style = styleColHeader(isNum || cell.col === 'H');
+    });
+
+    // --- Filas de datos ---
+    productos.forEach((p, i) => {
+      const bajo = isStockBajo(p);
+      const bgFill = bajo
+        ? { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + COLOR_BAJO } }
+        : i % 2 === 0
+          ? { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + COLOR_FILA_A } }
+          : { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+
+      const row = ws.addRow([
+        `ID-${String(p.id_producto).padStart(4, '0')}`,
+        p.nombre_producto,
+        p.categoria,
+        p.unidad_medida || '—',
+        p.precio_unitario != null ? parseFloat(p.precio_unitario) : null,
+        parseFloat(p.stock_actual),
+        parseFloat(p.stock_minimo),
+        bajo ? 'STOCK BAJO' : 'OK',
+      ]);
+      row.height = 18;
+
+      row.eachCell({ includeEmpty: true }, (cell, colIdx) => {
+        const isNumCol = colIdx >= 5 && colIdx <= 7;
+        const isEstado = colIdx === 8;
+        cell.border = thinBorder;
+        cell.fill   = bgFill;
+        cell.font   = {
+          size: 9,
+          bold:  colIdx === 1,
+          color: { argb: bajo && isEstado ? 'FF' + COLOR_BAJO_TX : 'FF1E293B' },
+        };
+        cell.alignment = {
+          horizontal: isNumCol || isEstado ? 'center' : 'left',
+          vertical: 'middle',
+        };
+        if (isNumCol && cell.value !== null) {
+          cell.numFmt = '#,##0.00';
+        }
+      });
+    });
+
+    // --- Fila de resumen ---
+    ws.addRow([]);
+    const valorTotal = productos.reduce(
+      (s, p) => s + parseFloat(p.precio_unitario || 0) * parseFloat(p.stock_actual || 0), 0
+    );
+    const resumenData = [
+      ['Total de productos',          productos.length],
+      ['Productos con stock bajo',     productos.filter(p => isStockBajo(p)).length],
+      ['Categorías distintas',         [...new Set(productos.map(p => p.categoria))].length],
+      ['Valor total del inventario',   valorTotal],
+    ];
+    resumenData.forEach(([label, val], idx) => {
+      const r = ws.addRow(['', '', '', '', '', label, '', val]);
+      r.height = 18;
+      const cLabel = r.getCell(6);
+      const cVal   = r.getCell(8);
+      cLabel.style = {
+        font: { bold: true, size: 9, color: { argb: 'FF' + COLOR_VERDE } },
+        alignment: { horizontal: 'right', vertical: 'middle' },
+      };
+      cVal.style = {
+        font: { bold: true, size: 9, color: { argb: 'FF1E293B' } },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } },
+        border: thinBorder,
+      };
+      if (idx === 3) cVal.numFmt = '"Bs." #,##0.00';
+    });
+
+    // --- Descargar ---
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob   = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = `bodega_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="p-4 md:p-8 animate-in fade-in duration-500 bg-slate-50 min-h-screen max-w-[100vw] overflow-x-hidden">
 
@@ -176,6 +365,32 @@ export default function AgroBodega() {
               className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-md text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white shadow-sm"
             />
           </div>
+          {/* Botones de exportación */}
+          <div className="flex gap-2">
+            <button
+              onClick={exportCSV}
+              disabled={productos.length === 0}
+              title="Descargar CSV"
+              className="flex items-center gap-1.5 px-3 py-2.5 border border-slate-300 rounded-md text-[10px] font-black uppercase tracking-widest text-slate-600 bg-white hover:bg-slate-50 hover:border-slate-400 transition-all active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              CSV
+            </button>
+            <button
+              onClick={() => exportXLSX()}
+              disabled={productos.length === 0}
+              title="Descargar Excel"
+              className="flex items-center gap-1.5 px-3 py-2.5 border border-slate-300 rounded-md text-[10px] font-black uppercase tracking-widest text-slate-600 bg-white hover:bg-slate-50 hover:border-slate-400 transition-all active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <svg className="w-4 h-4 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              XLSX
+            </button>
+          </div>
+
           <button
             onClick={openAddModal}
             className="bg-[#1A5729] hover:bg-[#144320] text-white px-6 py-2.5 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-md flex items-center justify-center gap-2"

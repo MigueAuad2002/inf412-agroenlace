@@ -21,6 +21,7 @@ import AgroMaquinarias from "./pages/AgroMaquinarias";
 import AgroBodega from "./pages/AgroBodega";
 import Downloads from "./pages/Downloads";
 import Profile from "./pages/Profile";
+import AgroOrdenes from "./pages/AgroOrdenes";
 
 
 function AnimatedRoutes() {
@@ -70,7 +71,7 @@ function AnimatedRoutes() {
 
             {/* Rutas en construcción*/}
             
-            <Route path="/agro/ordenes" element={<div className="p-8 font-bold text-gray-500">Configuración de Ordenes Trabajo (Próximamente)</div>} />
+            <Route path="/agro/ordenes" element={<AgroOrdenes/>} />
 
           </Route>
         </Route>

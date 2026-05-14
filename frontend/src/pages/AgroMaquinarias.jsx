@@ -28,7 +28,7 @@ export default function AgroMaquinarias() {
   const fetchMaquinaria = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/maquinaria`, {
+      const response = await fetch(`${API_URL}/maquinaria`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
@@ -84,7 +84,7 @@ export default function AgroMaquinarias() {
       cant_tanque_comb: parseFloat(formData.cant_tanque_comb) || 0
     };
 
-    const url = isEditing ? `${API_URL}/api/maquinaria/${currentId}` : `${API_URL}/api/maquinaria`;
+    const url = isEditing ? `${API_URL}/maquinaria/${currentId}` : `${API_URL}/maquinaria`;
     const method = isEditing ? 'PUT' : 'POST';
 
     try {
@@ -112,7 +112,7 @@ export default function AgroMaquinarias() {
   const handleDelete = async (id, placa) => {
     if (!window.confirm(`¿Está seguro de dar de baja el vehículo con placa ${placa}?`)) return;
     try {
-      const response = await fetch(`${API_URL}/api/maquinaria/${id}`, {
+      const response = await fetch(`${API_URL}/maquinaria/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

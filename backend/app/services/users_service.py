@@ -105,3 +105,25 @@ def modify_user(data):
         return {'success': False, 'message': str(e)}, 500
     finally:
         db.close_connection()
+
+
+def get_employees_list():
+    try:
+        db.create_connection()
+        result = users_repo.get_all_employees()
+        
+        data = []
+        if result:
+            # Mapeamos manualmente según el orden del SELECT en el repo
+            columns = ['id_usuario', 'user_name', 'nombre_razon_social']
+            for row in result:
+                data.append(dict(zip(columns, row)))
+        
+        return {
+            'success': True,
+            'list_empleados': data
+        }, 200
+    except Exception as e:
+        return {'success': False, 'message': f'Error: {str(e)}'}, 500
+    finally:
+        db.close_connection()

@@ -19,19 +19,35 @@ class AuthProvider with ChangeNotifier {
   Future<void> checkStoredToken() async {
     _token = await _storage.read(key: 'jwt_token');
     if (_token != null) {
-      // Si el token existe, lo decodificamos para recuperar los datos del usuario
-      _userData = JwtDecoder.decode(_token!);
+      try {
+        // Si el token existe, lo decodificamos para recuperar los datos del usuario
+        _userData = JwtDecoder.decode(_token!);
+        print('Decoded user data from stored token: $_userData');
+      } catch (e) {
+        // Si el decode falla (token inválido o expirado), limpiamos
+        print('Error decoding stored token: $e');
+        _token = null;
+        _userData = null;
+        await _storage.delete(key: 'jwt_token');
+      }
     }
     _isLoading = false;
     notifyListeners();
   }
 
   Future<void> login(String newToken) async {
-    _token = newToken;
-    // Decodificamos el token que viene de Flask
-    _userData = JwtDecoder.decode(newToken); 
-    
-    await _storage.write(key: 'jwt_token', value: newToken);
+    try {
+      _token = newToken;
+      _userData = JwtDecoder.decode(newToken); 
+      print('Decoded user data from login: $_userData');
+      
+      await _storage.write(key: 'jwt_token', value: newToken);
+    } catch (e) {
+      // Si falla el decode, no guardamos
+      print('Error decoding login token: $e');
+      _token = null;
+      _userData = null;
+    }
     notifyListeners();
   }
 

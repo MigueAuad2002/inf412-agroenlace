@@ -35,7 +35,7 @@ def get_cultivos_list():
         return {
             "success": True,
             "message": "Bodega de cultivos obtenida exitosamente.",
-            "list_cultivos": data
+            "data": data
         }, 200
 
     except Exception as e:

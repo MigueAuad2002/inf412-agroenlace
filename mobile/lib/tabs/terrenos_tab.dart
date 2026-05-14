@@ -15,7 +15,8 @@ class TerrenosTab extends StatefulWidget {
 class _TerrenosTabState extends State<TerrenosTab> {
   List<dynamic> _terrenos = [];
   bool _isLoading = true;
-  final String _apiUrl = dotenv.env['API_URL'] ?? 'https://inf412-agro-enlace.onrender.com/api';
+  String _searchTerm = '';
+  final String _apiUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.15:5000/api';
 
   @override
   void initState() {
@@ -75,22 +76,89 @@ class _TerrenosTabState extends State<TerrenosTab> {
 
   @override
   Widget build(BuildContext context) {
+    final filteredTerrenos = _terrenos.where((lote) {
+      final term = _searchTerm.toLowerCase();
+      final nro = lote['nro_lote']?.toString().toLowerCase() ?? '';
+      final nombre = lote['nombre_sector']?.toString().toLowerCase() ?? '';
+      final propietario = lote['propietario']?.toString().toLowerCase() ?? '';
+      return nombre.contains(term) || propietario.contains(term) || nro.contains(term);
+    }).toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: const Text('Gestión de Terrenos'),
+        backgroundColor: const Color(0xFF1A5729),
+        foregroundColor: Colors.white,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF1A5729)))
-          : RefreshIndicator(
-              onRefresh: _fetchTerrenos,
-              child: _terrenos.isEmpty
-                  ? const Center(child: Text("No tienes terrenos registrados"))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _terrenos.length,
-                      itemBuilder: (context, index) {
-                        final lote = _terrenos[index];
-                        return _buildTerrenoCard(lote);
-                      },
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: TextField(
+                    onChanged: (value) => setState(() => _searchTerm = value),
+                    decoration: const InputDecoration(
+                      hintText: 'Buscar por lote, sector o propietario...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
                     ),
+                  ),
+                ),
+                Expanded(
+                  child: filteredTerrenos.isEmpty
+                      ? const Center(child: Text("No tienes terrenos registrados"))
+                      : SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            columns: const [
+                              DataColumn(label: Text('Lote')),
+                              DataColumn(label: Text('Sector')),
+                              DataColumn(label: Text('Superficie')),
+                              DataColumn(label: Text('Coordenadas')),
+                              DataColumn(label: Text('Estado')),
+                              DataColumn(label: Text('Propietario')),
+                              DataColumn(label: Text('Acciones')),
+                            ],
+                            rows: filteredTerrenos.map((lote) {
+                              final estado = lote['estado'] ?? 'EN_DESCANSO';
+                              return DataRow(cells: [
+                                DataCell(Text('#${lote['nro_lote']}')),
+                                DataCell(Text(lote['nombre_sector'] ?? '')),
+                                DataCell(Text('${lote['tamano_hectareas']} Ha')),
+                                DataCell(Text('${lote['latitud']}, ${lote['longitud']}')),
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: estado == 'ACTIVO' ? Colors.green.shade100 : Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(estado, style: const TextStyle(fontSize: 10)),
+                                  ),
+                                ),
+                                DataCell(Text('@${lote['propietario'] ?? 'sin propietario'}')),
+                                DataCell(
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.edit),
+                                        onPressed: () => _showTerrenoForm(lote: lote),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete),
+                                        onPressed: () => _deleteTerreno(lote['nro_lote']),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ]);
+                            }).toList(),
+                          ),
+                        ),
+                ),
+              ],
             ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF1A5729),
@@ -100,45 +168,7 @@ class _TerrenosTabState extends State<TerrenosTab> {
     );
   }
 
-  Widget _buildTerrenoCard(dynamic lote) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      elevation: 2,
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A5729).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(Icons.landscape, color: Color(0xFF1A5729)),
-        ),
-        title: Text(
-          lote['nombre_sector'] ?? 'Sector sin nombre',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("${lote['tamano_hectareas']} Hectáreas"),
-            Text("Estado: ${lote['estado']}", style: const TextStyle(fontWeight: FontWeight.w600)),
-          ],
-        ),
-        trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 'edit', child: Text("Editar")),
-            const PopupMenuItem(value: 'delete', child: Text("Eliminar", style: TextStyle(color: Colors.red))),
-          ],
-          onSelected: (val) {
-            if (val == 'edit') _showTerrenoForm(lote: lote);
-            if (val == 'delete') _deleteTerreno(lote['nro_lote']);
-          },
-        ),
-      ),
-    );
-  }
+
 
   // MODAL PARA AGREGAR / EDITAR
   void _showTerrenoForm({dynamic lote}) {
@@ -191,15 +221,21 @@ class _TerrenosTabState extends State<TerrenosTab> {
                     payload['estado'] = lote['estado'];
                   }
 
-                  final res = await http.post(
-                    Uri.parse('$_apiUrl$endpoint'),
-                    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-                    body: jsonEncode(payload),
-                  );
+                  try {
+                    final res = await http.post(
+                      Uri.parse('$_apiUrl$endpoint'),
+                      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+                      body: jsonEncode(payload),
+                    );
 
-                  if (jsonDecode(res.body)['success']) {
-                    Navigator.pop(context);
-                    _fetchTerrenos();
+                    final data = jsonDecode(res.body);
+                    if (data['success']) {
+                      Navigator.pop(context);
+                      _fetchTerrenos();
+                    }
+                  } catch (e) {
+                    debugPrint("Error al guardar: $e");
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
                   }
                 },
                 child: Text(isEditing ? "Guardar Cambios" : "Registrar"),

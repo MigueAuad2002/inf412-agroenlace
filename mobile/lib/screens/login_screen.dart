@@ -18,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   
   bool _isLoading = false;
   bool _obscurePassword = true;
+  String _errorMessage = ''; // Agregado para simular el banner de error de React
 
   @override
   void dispose() {
@@ -28,21 +29,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleLogin() async {
     if (_userController.text.trim().isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Debe ingresar su Correo y Contraseña.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() {
+        _errorMessage = 'Debe ingresar su correo y contraseña.';
+      });
       return;
     }
 
     setState(() {
       _isLoading = true;
+      _errorMessage = '';
     });
 
     try {
-      final String apiUrl = dotenv.env['API_URL'] ?? 'http://10.0.2.2:5000/api';
+      final String apiUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.15:5000/api';
       
       final response = await http.post(
         Uri.parse('$apiUrl/login'),
@@ -51,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
         },
         body: jsonEncode({
           'user_input': _userController.text.trim(),
-          'password': _passwordController.text, // Eliminado el .trim() de la contraseña
+          'password': _passwordController.text,
         }),
       );
 
@@ -62,32 +61,20 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return; 
 
         Provider.of<AuthProvider>(context, listen: false).login(token);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('¡Bienvenido a AgroEnlace!'),
-            backgroundColor: Color(0xFF1A5729),
-          ),
-        );
+        // Redirección manejada usualmente por el AuthProvider/Main
       } 
       else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(data['message'] ?? 'Usuario o contraseña incorrectos'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(() {
+          _errorMessage = data['message'] ?? 'Credenciales incorrectas';
+        });
       }
     } catch (e) {
       print("Error crítico de conexión: $e");
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error de conexión con el servidor.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() {
+        _errorMessage = 'Error de comunicación con el servidor.';
+      });
     } finally {
       if (mounted) {
         setState(() {
@@ -97,293 +84,333 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // Método auxiliar para el botón DEMO
+  void _cargarDemo() {
+    setState(() {
+      _userController.text = 'admin@agro.com';
+      _passwordController.text = 'admin123';
+      _errorMessage = '';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    const Color primaryGreen = Color(0xFF1A5729);
-    const Color lightGreen = Color(0xFF7CB342);
-    const Color backgroundBlue = Color(0xFFE1F0F5);
-
+    // Paleta de colores exacta extraída del JSX (Tailwind)
+    const Color bgCeleste = Color(0xFFEBF5FF);
+    const Color darkGreen = Color(0xFF1A5729);
+    const Color slate50 = Color(0xFFF8FAFC);
+    const Color slate100 = Color(0xFFF1F5F9);
+    const Color slate200 = Color(0xFFE2E8F0);
+    const Color slate500 = Color(0xFF64748B);
+    const Color slate800 = Color(0xFF1E293B);
+    
     return Scaffold(
-      backgroundColor: backgroundBlue,
-      // Usamos SafeArea pero permitimos que el fondo blanco baje hasta el final
-      body: SafeArea(
-        bottom: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              // Este ConstrainedBox asegura que el contenido ocupe al menos toda la pantalla,
-              // empujando el panel blanco hasta abajo incluso si el teclado no está abierto.
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
-                child: IntrinsicHeight(
-                  child: Column(
-                    children: [
-                      // ==========================================
-                      // SECCIÓN SUPERIOR: Logo y Bienvenida
-                      // ==========================================
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 40.0, horizontal: 24.0),
-                        child: Column(
-                          children: [
-                            // Logo (Mantenemos tu diseño exacto que ya validaste)
-                            Container(
-                              height: 80,
-                              width: 80,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFD4EBF2),
-                                borderRadius: BorderRadius.circular(20), // Un poco más curvo para móvil
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black12,
-                                    blurRadius: 10,
-                                    offset: Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Image.asset(
-                                  'assets/LOGO.png', 
+      backgroundColor: bgCeleste,
+      body: Stack(
+        children: [
+          // Línea decorativa superior (Fija)
+          Positioned(
+            top: 0, left: 0, right: 0,
+            child: Container(height: 6, color: darkGreen),
+          ),
+          
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    
+                    // ==========================================
+                    // TARJETA DE LOGIN CORPORATIVA
+                    // ==========================================
+                    Container(
+                      width: double.infinity,
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8), // rounded-lg
+                        border: Border.all(color: slate200),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 15,
+                            offset: Offset(0, 5),
+                          )
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          // Header Compacto
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                            decoration: const BoxDecoration(
+                              color: slate50,
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                              border: Border(bottom: BorderSide(color: slate100)),
+                            ),
+                            child: Column(
+                              children: [
+                                Image.asset(
+                                  'assets/LOGO.png',
+                                  height: 64,
+                                  width: 64,
                                   fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Icon(Icons.eco, size: 40, color: primaryGreen);
-                                  },
+                                  errorBuilder: (context, error, stackTrace) => 
+                                    const Icon(Icons.eco, size: 64, color: darkGreen),
                                 ),
-                              ),
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'ACCESO AL SISTEMA',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    color: slate800,
+                                    letterSpacing: 2.0, // tracking-widest
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 24),
-                            
-                            const Text(
-                              'AgroEnlace',
-                              style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w900,
-                                color: primaryGreen,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Acceso Institucional',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black54,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // ==========================================
-                      // SECCIÓN INFERIOR: Formulario en "Bottom Sheet"
-                      // ==========================================
-                      Expanded(
-                        child: Container(
-                          width: double.infinity,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 10,
-                                offset: Offset(0, -2),
-                              ),
-                            ],
                           ),
-                          padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Input de Usuario
-                              const Text(
-                                'Correo electrónico o Usuario',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: _userController,
-                                keyboardType: TextInputType.emailAddress,
-                                textInputAction: TextInputAction.next,
-                                decoration: InputDecoration(
-                                  hintText: 'ej. nombre@empresa.com',
-                                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                                  prefixIcon: Icon(Icons.person_outline, color: Colors.grey.shade500),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade200),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade200),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: primaryGreen, width: 2),
-                                  ),
-                                ),
-                              ),
-                              
-                              const SizedBox(height: 24),
 
-                              // Input de Contraseña
-                              const Text(
-                                'Contraseña',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: _passwordController,
-                                obscureText: _obscurePassword,
-                                textInputAction: TextInputAction.done,
-                                onSubmitted: (_) => _handleLogin(), // Permite loguearse presionando "Enter" en el teclado
-                                decoration: InputDecoration(
-                                  hintText: '••••••••',
-                                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                                  prefixIcon: Icon(Icons.lock_outline, color: Colors.grey.shade500),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade200),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade200),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: primaryGreen, width: 2),
-                                  ),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                                      color: Colors.grey.shade400,
+                          // Formulario
+                          Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                
+                                // MENSAJE DE ERROR (Estilo Web)
+                                if (_errorMessage.isNotEmpty)
+                                  Container(
+                                    margin: const EdgeInsets.only(bottom: 20),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF2F2), // red-50
+                                      border: const Border(left: BorderSide(color: Colors.red, width: 4)),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _obscurePassword = !_obscurePassword;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ),
-
-                              // Recuperar Clave alineado a la derecha, estilo app
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton(
-                                  onPressed: () {
-                                    // Acción para recuperar contraseña
-                                  },
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  child: const Text(
-                                    '¿Olvidaste tu contraseña?',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: lightGreen,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              
-                              const SizedBox(height: 32),
-
-                              // Botón Principal
-                              ElevatedButton(
-                                onPressed: _isLoading ? null : _handleLogin,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: primaryGreen,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 18),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12), // Más curvo, amigable al dedo
-                                  ),
-                                  elevation: 0, // Las apps modernas suelen usar menos sombras en botones grandes
-                                ),
-                                child: _isLoading
-                                    ? const SizedBox(
-                                        height: 20,
-                                        width: 20,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Text(
-                                        'INGRESAR',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1.0,
-                                        ),
-                                      ),
-                              ),
-
-                              // Spacer empuja el footer hacia abajo si la pantalla es muy alta
-                              const Spacer(),
-                              const SizedBox(height: 24),
-
-                              // Footer
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    '¿No tienes una cuenta? ',
-                                    style: TextStyle(
-                                      fontSize: 14, 
-                                      color: Colors.grey.shade600
-                                    ),
-                                  ),
-                                  GestureDetector(
-                                    onTap: () {
-                                      // Navegar a Registro
-                                    },
-                                    child: const Text(
-                                      'Solicitar acceso',
-                                      style: TextStyle(
-                                        fontSize: 14,
+                                    child: Text(
+                                      _errorMessage.toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Color(0xFFB91C1C), // red-700
+                                        fontSize: 10,
                                         fontWeight: FontWeight.bold,
-                                        color: primaryGreen,
                                       ),
                                     ),
                                   ),
-                                ],
-                              ),
-                              // Margen de seguridad para el teclado en iOS/Android
-                              SizedBox(height: MediaQuery.of(context).viewInsets.bottom > 0 ? 20 : 0),
-                            ],
+
+                                // Input Usuario
+                                const Text(
+                                  'USUARIO',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    color: slate500,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                TextField(
+                                  controller: _userController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  textInputAction: TextInputAction.next,
+                                  style: const TextStyle(fontSize: 14),
+                                  decoration: InputDecoration(
+                                    hintText: 'admin@agro.com',
+                                    hintStyle: TextStyle(color: Colors.grey.shade400),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    filled: true,
+                                    fillColor: slate50,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(4), // rounded
+                                      borderSide: const BorderSide(color: slate200),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                      borderSide: const BorderSide(color: slate200),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                      borderSide: const BorderSide(color: darkGreen, width: 2),
+                                    ),
+                                  ),
+                                ),
+                                
+                                const SizedBox(height: 16),
+
+                                // Input Contraseña
+                                const Text(
+                                  'CONTRASEÑA',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    color: slate500,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                TextField(
+                                  controller: _passwordController,
+                                  obscureText: _obscurePassword,
+                                  textInputAction: TextInputAction.done,
+                                  onSubmitted: (_) => _handleLogin(),
+                                  style: const TextStyle(fontSize: 14),
+                                  decoration: InputDecoration(
+                                    hintText: '••••••••',
+                                    hintStyle: TextStyle(color: Colors.grey.shade400),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    filled: true,
+                                    fillColor: slate50,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                      borderSide: const BorderSide(color: slate200),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                      borderSide: const BorderSide(color: slate200),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                      borderSide: const BorderSide(color: darkGreen, width: 2),
+                                    ),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                        color: Colors.grey.shade400,
+                                        size: 20,
+                                      ),
+                                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 24),
+
+                                // Botón Principal
+                                ElevatedButton(
+                                  onPressed: _isLoading ? null : _handleLogin,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: darkGreen,
+                                    disabledBackgroundColor: slate500,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(4), // rounded
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          height: 16, width: 16,
+                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                        )
+                                      : const Text(
+                                          'INGRESAR',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 2.0, // tracking-[0.2em]
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+
+                    // ==========================================
+                    // BANNER DE PRUEBA COMPACTO
+                    // ==========================================
+                    Container(
+                      margin: const EdgeInsets.only(top: 16),
+                      width: double.infinity,
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2563EB).withOpacity(0.05), // bg-blue-600/10
+                        border: Border.all(color: const Color(0xFFBFDBFE)), // border-blue-200
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2563EB),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Icon(Icons.key, color: Colors.white, size: 16),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'USUARIO DEMO',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF1D4ED8), // blue-700
+                                  ),
+                                ),
+                                Text(
+                                  'admin@agro.com / admin123',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: _cargarDemo,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2563EB), // blue-600
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                              minimumSize: const Size(0, 32),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: const Text(
+                              'CARGAR',
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ==========================================
+                    // FOOTER
+                    // ==========================================
+                    const SizedBox(height: 24),
+                    const Text(
+                      'UAGRM • 2026',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: slate500,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }

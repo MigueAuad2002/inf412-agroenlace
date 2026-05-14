@@ -15,7 +15,7 @@ export default function AgroMaquinarias() {
   const [currentId, setCurrentId] = useState(null);
   
   const initialForm = {
-    tipo: '',
+    tipo: '', // Iniciará vacío para forzar al usuario a seleccionar uno
     modelo: '',
     placa: '',
     estado: 'DISPONIBLE',
@@ -28,7 +28,7 @@ export default function AgroMaquinarias() {
   const fetchMaquinaria = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/maquinaria`, {
+      const response = await fetch(`${API_URL}/api/maquinaria`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
@@ -73,13 +73,18 @@ export default function AgroMaquinarias() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // FORMATEO ESTRICTO: Forzamos mayúsculas y números antes de enviar al backend
     const payload = {
       ...formData,
+      tipo: formData.tipo.toUpperCase(),
+      placa: formData.placa.toUpperCase(),
+      modelo: formData.modelo.toUpperCase(),
       kilometraje: parseFloat(formData.kilometraje) || 0,
       cant_tanque_comb: parseFloat(formData.cant_tanque_comb) || 0
     };
 
-    const url = isEditing ? `${API_URL}/maquinaria/${currentId}` : `${API_URL}/maquinaria`;
+    const url = isEditing ? `${API_URL}/api/maquinaria/${currentId}` : `${API_URL}/api/maquinaria`;
     const method = isEditing ? 'PUT' : 'POST';
 
     try {
@@ -107,7 +112,7 @@ export default function AgroMaquinarias() {
   const handleDelete = async (id, placa) => {
     if (!window.confirm(`¿Está seguro de dar de baja el vehículo con placa ${placa}?`)) return;
     try {
-      const response = await fetch(`${API_URL}/maquinaria/${id}`, {
+      const response = await fetch(`${API_URL}/api/maquinaria/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -130,7 +135,7 @@ export default function AgroMaquinarias() {
   const stats = {
     total: maquinaria.length,
     disponibles: maquinaria.filter(m => m.estado === 'DISPONIBLE').length,
-    enUso: maquinaria.filter(m => m.estado === 'EN USO').length,
+    enUso: maquinaria.filter(m => m.estado === 'OCUPADO').length, // Ajustado a OCUPADO
     mantenimiento: maquinaria.filter(m => m.estado === 'MANTENIMIENTO').length,
   };
 
@@ -197,7 +202,7 @@ export default function AgroMaquinarias() {
             <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
           <div>
-            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">En Uso</p>
+            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ocupados</p>
             <p className="text-lg md:text-xl font-black text-blue-700">{stats.enUso}</p>
           </div>
         </div>
@@ -257,11 +262,11 @@ export default function AgroMaquinarias() {
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1.5 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center w-fit whitespace-nowrap gap-2 ${
                         m.estado === 'DISPONIBLE' ? 'bg-emerald-50 text-emerald-700' :
-                        m.estado === 'EN USO' ? 'bg-blue-50 text-blue-700' :
+                        m.estado === 'OCUPADO' ? 'bg-blue-50 text-blue-700' :
                         'bg-red-50 text-red-700'
                       }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${
-                          m.estado === 'DISPONIBLE' ? 'bg-emerald-500' : m.estado === 'EN USO' ? 'bg-blue-500 animate-pulse' : 'bg-red-500 animate-bounce'
+                          m.estado === 'DISPONIBLE' ? 'bg-emerald-500' : m.estado === 'OCUPADO' ? 'bg-blue-500 animate-pulse' : 'bg-red-500 animate-bounce'
                         }`}></span>
                         {m.estado}
                       </span>
@@ -301,7 +306,6 @@ export default function AgroMaquinarias() {
       {/* MODAL DE FICHA TÉCNICA (Mobile-First y Scroll Interno) */}
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-slate-900/70 backdrop-blur-sm">
-          {/* El contenedor principal se restringe al 95% del viewport vertical */}
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl flex flex-col max-h-[95vh] border border-slate-300 animate-in zoom-in-95 duration-200">
             
             {/* Cabecera Fija */}
@@ -328,10 +332,26 @@ export default function AgroMaquinarias() {
               {/* Sección 1: Identificación */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 bg-white p-4 sm:p-6 rounded-md border border-slate-200 shadow-sm">
                 
+                {/* AQUI SE CAMBIO INPUT TEXT POR SELECT */}
                 <div className="md:col-span-1">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 sm:mb-2">Clasificación / Tipo *</label>
-                  <input type="text" required name="tipo" value={formData.tipo} onChange={handleChange} placeholder="TRACTOR, CAMIONETA..."
-                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-200 rounded text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-slate-50/50" />
+                  <select 
+                    required 
+                    name="tipo" 
+                    value={formData.tipo} 
+                    onChange={handleChange}
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-200 rounded text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white cursor-pointer"
+                  >
+                    <option value="" disabled>SELECCIONE UN TIPO...</option>
+                    <option value="TRACTOR">TRACTOR</option>
+                    <option value="COSECHADORA">COSECHADORA</option>
+                    <option value="SEMBRADORA">SEMBRADORA</option>
+                    <option value="PULVERIZADORA">PULVERIZADORA</option>
+                    <option value="CAMIONETA">CAMIONETA</option>
+                    <option value="CAMIÓN">CAMIÓN PESADO</option>
+                    <option value="IMPLEMENTO">IMPLEMENTO AGRÍCOLA</option>
+                    <option value="OTRO">OTRO</option>
+                  </select>
                 </div>
 
                 <div className="md:col-span-1">
@@ -341,7 +361,7 @@ export default function AgroMaquinarias() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 sm:mb-2">Marca, Modelo y Año</label>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 sm:mb-2">Marca - Modelo</label>
                   <input type="text" name="modelo" value={formData.modelo} onChange={handleChange} placeholder="EJ: JOHN DEERE 5090E (2022)"
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-200 rounded text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729]" />
                 </div>
@@ -383,7 +403,7 @@ export default function AgroMaquinarias() {
                   <select name="estado" value={formData.estado} onChange={handleChange}
                     className="w-full md:w-2/3 px-3 sm:px-4 py-2 sm:py-2.5 border border-blue-200 rounded-md text-[10px] sm:text-xs font-black uppercase outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white text-blue-900 shadow-sm cursor-pointer">
                     <option value="DISPONIBLE">🟢 VEHÍCULO DISPONIBLE</option>
-                    <option value="EN USO">🔵 VEHÍCULO TRABAJANDO</option>
+                    <option value="OCUPADO">🔵 VEHÍCULO TRABAJANDO (OCUPADO)</option>
                     <option value="MANTENIMIENTO">🔴 EN TALLER / REPARACIÓN</option>
                   </select>
                 </div>

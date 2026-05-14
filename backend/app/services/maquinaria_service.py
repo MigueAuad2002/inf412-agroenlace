@@ -65,7 +65,7 @@ def modify_maquinaria(auth_header:str,nro_maquina:int, data:dict):
     finally:
         db.close_connection()
 
-def remove_maquinaria(nro_maquina):
+def remove_maquinaria(auth_header,nro_maquina):
     try:
         db.create_connection()
         maquinaria_repo.delete_maquinaria(nro_maquina)

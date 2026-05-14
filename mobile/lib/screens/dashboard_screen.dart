@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-// Importamos el nuevo archivo que creaste
+// Asegúrate de que esta ruta sea correcta según tu estructura de carpetas
 import '../tabs/terrenos_tab.dart'; 
 
 class DashboardScreen extends StatefulWidget {
@@ -14,10 +14,64 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
 
-  // Colores del ecosistema AgroEnlace
+  // Paleta de colores Corporativa AgroEnlace
   final Color primaryGreen = const Color(0xFF1A5729);
   final Color accentGreen = const Color(0xFF7BC636);
   final Color bgColor = const Color(0xFFF8FAFC);
+  final Color slate800 = const Color(0xFF1E293B);
+
+  int get idRol {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    return user != null && user['role'] != null ? (user['role'] is int ? user['role'] : int.tryParse(user['role'].toString()) ?? 0) : 0;
+  }
+
+  List<NavigationDestination> get _destinations {
+    final destinations = <NavigationDestination>[];
+    if (idRol == 1 || idRol == 2) {
+      // Admin y Supervisor: Módulos, Campañas, Terrenos, Perfil
+      destinations.add(NavigationDestination(
+        icon: Icon(Icons.grid_view_rounded, color: Colors.grey.shade400),
+        selectedIcon: Icon(Icons.grid_view_rounded, color: Color(0xFF1A5729)),
+        label: 'Módulos',
+      ));
+      destinations.add(NavigationDestination(
+        icon: Icon(Icons.eco_outlined, color: Colors.grey.shade400),
+        selectedIcon: Icon(Icons.eco_rounded, color: Color(0xFF1A5729)),
+        label: 'Campañas',
+      ));
+      destinations.add(NavigationDestination(
+        icon: Icon(Icons.landscape_outlined, color: Colors.grey.shade400),
+        selectedIcon: Icon(Icons.landscape_rounded, color: Color(0xFF1A5729)),
+        label: 'Terrenos',
+      ));
+    } else if (idRol == 3) {
+      // Empleado: Órdenes, Lotes, Perfil
+      destinations.add(NavigationDestination(
+        icon: Icon(Icons.assignment_outlined, color: Colors.grey.shade400),
+        selectedIcon: Icon(Icons.assignment_rounded, color: Color(0xFF1A5729)),
+        label: 'Órdenes',
+      ));
+      destinations.add(NavigationDestination(
+        icon: Icon(Icons.landscape_outlined, color: Colors.grey.shade400),
+        selectedIcon: Icon(Icons.landscape_rounded, color: Color(0xFF1A5729)),
+        label: 'Lotes',
+      ));
+    } else {
+      // Cliente: Terrenos, Perfil
+      destinations.add(NavigationDestination(
+        icon: Icon(Icons.landscape_outlined, color: Colors.grey.shade400),
+        selectedIcon: Icon(Icons.landscape_rounded, color: Color(0xFF1A5729)),
+        label: 'Terrenos',
+      ));
+    }
+    // Perfil para todos
+    destinations.add(NavigationDestination(
+      icon: Icon(Icons.person_outline_rounded, color: Colors.grey.shade400),
+      selectedIcon: Icon(Icons.person_rounded, color: Color(0xFF1A5729)),
+      label: 'Perfil',
+    ));
+    return destinations;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,9 +82,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: Column(
           children: [
             Text(
-              _currentIndex == 0 ? 'AGROENLACE' : 
-              _currentIndex == 1 ? 'CAMPAÑAS' : 
-              _currentIndex == 2 ? 'MIS TERRENOS' : 'PERFIL',
+              _currentIndex < _destinations.length ? _destinations[_currentIndex].label ?? 'AGROENLACE' : 'AGROENLACE',
               style: const TextStyle(
                 fontWeight: FontWeight.w900, 
                 fontSize: 18, 
@@ -38,10 +90,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: Colors.white
               ),
             ),
-            if (_currentIndex == 0)
+            if (_currentIndex == 0 && idRol >= 1 && idRol <= 3)
               const Text(
-                'Panel de Control',
-                style: TextStyle(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.bold),
+                'WORKSPACE',
+                style: TextStyle(fontSize: 9, color: Colors.white70, fontWeight: FontWeight.bold, letterSpacing: 2.0),
               )
           ],
         ),
@@ -74,7 +126,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           data: NavigationBarThemeData(
             indicatorColor: accentGreen.withOpacity(0.2),
             labelTextStyle: WidgetStateProperty.all(
-              TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: primaryGreen),
+              TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primaryGreen),
             ),
           ),
           child: NavigationBar(
@@ -82,28 +134,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             backgroundColor: Colors.white,
             selectedIndex: _currentIndex,
             onDestinationSelected: (index) => setState(() => _currentIndex = index),
-            destinations: [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined, color: Colors.grey.shade600),
-                selectedIcon: Icon(Icons.home_rounded, color: primaryGreen),
-                label: 'Inicio',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.eco_outlined, color: Colors.grey.shade600),
-                selectedIcon: Icon(Icons.eco_rounded, color: primaryGreen),
-                label: 'Campañas',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.landscape_outlined, color: Colors.grey.shade600),
-                selectedIcon: Icon(Icons.landscape_rounded, color: primaryGreen),
-                label: 'Terrenos',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.person_outline_rounded, color: Colors.grey.shade600),
-                selectedIcon: Icon(Icons.person_rounded, color: primaryGreen),
-                label: 'Perfil',
-              ),
-            ],
+            destinations: _destinations,
           ),
         ),
       ),
@@ -111,142 +142,243 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _getPantalla(int index) {
-    switch (index) {
-      case 0: return const InicioTab();
-      case 1: return const CampaniasTab();
-      case 2: return const TerrenosTab(); // Clase que reside en lib/tabs/terrenos_tab.dart
-      case 3: return const PerfilTab();
-      default: return const InicioTab();
+    int actualIndex = 0;
+    if (idRol == 1 || idRol == 2) {
+      if (index == actualIndex) return const InicioTab();
+      actualIndex++;
+      if (index == actualIndex) return const CampaniasTab();
+      actualIndex++;
+      if (index == actualIndex) return const TerrenosTab();
+      actualIndex++;
+    } else if (idRol == 3) {
+      if (index == actualIndex) return const OrdenesTab(); // Placeholder
+      actualIndex++;
+      if (index == actualIndex) return const TerrenosTab();
+      actualIndex++;
+    } else {
+      if (index == actualIndex) return const TerrenosTab();
+      actualIndex++;
     }
+    if (index == actualIndex) return const PerfilTab();
+    return const InicioTab();
   }
 }
 
 // =====================================================================
-// TAB DE INICIO
+// MODELO Y DATOS DE MÓDULOS (Equivalente al Array de React)
+// =====================================================================
+class ModuloOption {
+  final String id;
+  final String titulo;
+  final IconData icono;
+  final Color colorIcono;
+  final Color colorFondo;
+
+  ModuloOption({
+    required this.id, 
+    required this.titulo, 
+    required this.icono, 
+    required this.colorIcono, 
+    required this.colorFondo
+  });
+}
+
+// =====================================================================
+// TAB DE INICIO (Módulos estilo Grid Web)
 // =====================================================================
 class InicioTab extends StatelessWidget {
   const InicioTab({super.key});
 
+  String _obtenerSaludo() {
+    final hora = DateTime.now().hour;
+    if (hora < 12) return 'Buenos días';
+    if (hora < 18) return 'Buenas tardes';
+    return 'Buenas noches';
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final String nombreUsuario = authProvider.user?['name']?.split(' ')[0] ?? "Usuario";
+    final user = authProvider.user;
 
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        Text(
-          "Hola, $nombreUsuario 👋",
-          style: const TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w900,
-            color: Color(0xFF1A5729),
+    // Extracción de datos del token decodificado
+    final String nombreCompleto = user?['name'] ?? "Administrador";
+    final String primerNombre = nombreCompleto.split(' ')[0];
+    
+    // Debug: Imprimir el contenido de user
+    print('User data: $user');
+    
+    // El role define qué módulos se muestran (usando 'role' en lugar de 'id_rol')
+    int idRol = 0;
+    if (user != null && user['role'] != null) {
+      idRol = user['role'] is int ? user['role'] : int.tryParse(user['role'].toString()) ?? 0;
+    }
+
+    final List<ModuloOption> modulos = [
+      ModuloOption(id: 'produccion', titulo: 'Producción Agrícola', icono: Icons.agriculture_rounded, colorIcono: const Color(0xFF059669), colorFondo: const Color(0xFFECFDF5)),
+      ModuloOption(id: 'comercial', titulo: 'Ventas y Comercial', icono: Icons.storefront_rounded, colorIcono: const Color(0xFF2563EB), colorFondo: const Color(0xFFEFF6FF)),
+      ModuloOption(id: 'crm', titulo: 'Gestión CRM', icono: Icons.people_alt_rounded, colorIcono: const Color(0xFF9333EA), colorFondo: const Color(0xFFFAF5FF)),
+      ModuloOption(id: 'admin', titulo: 'Admin. y Finanzas', icono: Icons.account_balance_wallet_rounded, colorIcono: const Color(0xFFEA580C), colorFondo: const Color(0xFFFFF7ED)),
+      ModuloOption(id: 'reportes', titulo: 'Reportes e Intel.', icono: Icons.bar_chart_rounded, colorIcono: const Color(0xFFE11D48), colorFondo: const Color(0xFFFFF1F2)),
+      ModuloOption(id: 'security', titulo: 'Seguridad y Accesos', icono: Icons.security_rounded, colorIcono: const Color(0xFF0891B2), colorFondo: const Color(0xFFECFEFF)),
+      ModuloOption(id: 'downloads', titulo: 'Descargas', icono: Icons.download_rounded, colorIcono: const Color(0xFF475569), colorFondo: const Color(0xFFF1F5F9)),
+    ];
+
+    // Filtrado por roles idéntico al Home.jsx
+    final modulosPermitidos = modulos.where((mod) {
+      if (mod.id == 'security') return idRol == 1;
+      if (mod.id == 'produccion') return [1, 2, 3].contains(idRol);
+      return true;
+    }).toList();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 30),
+          Text(
+            "${_obtenerSaludo()},\n$primerNombre",
+            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Color(0xFF1E293B), height: 1.1),
           ),
-        ),
-        const Text(
-          "Bienvenido al panel de control de AgroEnlace.",
-          style: TextStyle(color: Colors.grey, fontSize: 14),
-        ),
-        const SizedBox(height: 32),
-        const Text(
-          "ACCESO RÁPIDO",
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1),
-        ),
-        const SizedBox(height: 16),
-        _buildQuickAction("Registrar Terreno", "Crea un nuevo lote en el mapa", Icons.add_location_alt_rounded, const Color(0xFF1A5729)),
-        const SizedBox(height: 12),
-        _buildQuickAction("Nueva Campaña", "Inicia el registro de siembra", Icons.auto_graph_rounded, const Color(0xFF7BC636)),
-        const SizedBox(height: 12),
-        _buildQuickAction("Ver Reportes", "Consulta el rendimiento de tus lotes", Icons.insert_chart_outlined_rounded, Colors.blueGrey),
-      ],
+          const SizedBox(height: 8),
+          Text("Selecciona un módulo operativo:", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey.shade500)),
+          const SizedBox(height: 24),
+          Expanded(
+            child: GridView.builder(
+              itemCount: modulosPermitidos.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.0,
+              ),
+              itemBuilder: (context, index) {
+                final mod = modulosPermitidos[index];
+                return _buildModuloCard(mod, context);
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildQuickAction(String title, String subtitle, IconData icon, Color color) {
+  Widget _buildModuloCard(ModuloOption modulo, BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        leading: CircleAvatar(backgroundColor: color.withOpacity(0.1), child: Icon(icon, color: color)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+      child: InkWell(
         onTap: () {},
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: modulo.colorFondo, borderRadius: BorderRadius.circular(12)),
+                child: Icon(modulo.icono, color: modulo.colorIcono, size: 30),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                modulo.titulo,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
 // =====================================================================
-// TAB DE CAMPAÑAS (Temporal hasta que creemos su archivo)
+// TABS TEMPORALES
 // =====================================================================
 class CampaniasTab extends StatelessWidget {
   const CampaniasTab({super.key});
   @override
   Widget build(BuildContext context) {
-    return const Center(child: Text("Gestión de Campañas"));
+    return const Center(child: Text("Módulo de Campañas"));
   }
 }
 
 // =====================================================================
-// TAB DE PERFIL
+// TAB DE ÓRDENES (Placeholder)
+// =====================================================================
+class OrdenesTab extends StatelessWidget {
+  const OrdenesTab({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text("Módulo de Órdenes"));
+  }
+}
+
+// =====================================================================
+// TAB DE PERFIL (Corporativo)
 // =====================================================================
 class PerfilTab extends StatelessWidget {
   const PerfilTab({super.key});
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final String nombreCompleto = authProvider.user?['name'] ?? "Usuario AgroEnlace";
-    final String correo = authProvider.user?['mail'] ?? "correo@agroenlace.com";
+    final user = authProvider.user;
+    
+    final String nombreCompleto = user?['name'] ?? "Usuario AgroEnlace";
+    final String correo = user?['username'] ?? "admin@agroenlace.com";
 
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          const SizedBox(height: 40),
-          const CircleAvatar(
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        const SizedBox(height: 20),
+        const Center(
+          child: CircleAvatar(
             radius: 50,
             backgroundColor: Color(0xFF1A5729),
-            child: Icon(Icons.person, size: 50, color: Colors.white),
+            child: Icon(Icons.person, size: 55, color: Colors.white),
           ),
-          const SizedBox(height: 16),
-          Text(nombreCompleto, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          Text(correo, style: const TextStyle(color: Colors.grey)),
-          const SizedBox(height: 40),
-          ListTile(
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text("Configuración"),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
+        ),
+        const SizedBox(height: 16),
+        Center(child: Text(nombreCompleto, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900))),
+        Center(child: Text(correo, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold))),
+        const SizedBox(height: 40),
+        _itemPerfil(Icons.settings_outlined, "Configuración del Sistema"),
+        _itemPerfil(Icons.help_outline, "Centro de Soporte"),
+        const SizedBox(height: 40),
+        ElevatedButton(
+          onPressed: () => authProvider.logout(),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFFEF2F2),
+            foregroundColor: const Color(0xFFB91C1C),
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.help_outline),
-            title: const Text("Soporte Técnico"),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
-          ),
-          const SizedBox(height: 40),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: ElevatedButton.icon(
-              onPressed: () => Provider.of<AuthProvider>(context, listen: false).logout(),
-              icon: const Icon(Icons.logout_rounded),
-              label: const Text("CERRAR SESIÓN", style: TextStyle(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade50,
-                foregroundColor: Colors.red,
-                minimumSize: const Size(double.infinity, 55),
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-        ],
-      ),
+          child: const Text("CERRAR SESIÓN CORPORATIVA", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.2)),
+        ),
+      ],
+    );
+  }
+
+  Widget _itemPerfil(IconData icon, String label) {
+    return Column(
+      children: [
+        ListTile(
+          // CORRECCIÓN: Usamos Color(0xFF475569) en lugar de Colors.slate
+          leading: Icon(icon, color: const Color(0xFF475569)),
+          title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          trailing: const Icon(Icons.chevron_right, size: 18),
+          onTap: () {},
+        ),
+        const Divider(height: 1),
+      ],
     );
   }
 }

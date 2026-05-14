@@ -8,3 +8,4 @@ from .campanias_routes import campanias_routes
 from .roles_routes import roles_routes
 from .profile_routes import profile_routes
 from .maquinaria_routes import maquinaria_routes
+from .prediccion_routes import prediccion_routes

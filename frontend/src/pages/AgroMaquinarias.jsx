@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/auth_store';
+import * as XLSX from 'xlsx';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -13,7 +14,8 @@ export default function AgroMaquinarias() {
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState(null);
-  
+  const [categoryFilter, setCategoryFilter] = useState('TODOS');
+
   const initialForm = {
     tipo: '', // Iniciará vacío para forzar al usuario a seleccionar uno
     modelo: '',
@@ -127,15 +129,89 @@ export default function AgroMaquinarias() {
     }
   };
 
-  const filtered = maquinaria.filter(m => 
-    m.placa.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    m.tipo.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const exportToCSV = () => {
+    const headers = [
+      'ID',
+      'TIPO',
+      'MODELO',
+      'PLACA',
+      'ESTADO',
+      'KILOMETRAJE',
+      'TANQUE',
+      'ULTIMO_MANTENIMIENTO'
+    ];
+
+    const rows = filtered.map((m) => [
+      m.nro_maquina,
+      m.tipo,
+      m.modelo,
+      m.placa,
+      m.estado,
+      m.kilometraje,
+      m.cant_tanque_comb,
+      m.fecha_ult_mant
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((r) => r.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], {
+      type: 'text/csv;charset=utf-8;'
+    });
+
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.href = url;
+    link.setAttribute('download', 'reporte_maquinaria.csv');
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportToExcel = () => {
+    const data = filtered.map((m) => ({
+      ID: m.nro_maquina,
+      TIPO: m.tipo,
+      MODELO: m.modelo,
+      PLACA: m.placa,
+      ESTADO: m.estado,
+      KILOMETRAJE: m.kilometraje,
+      TANQUE: m.cant_tanque_comb,
+      ULTIMO_MANTENIMIENTO: m.fecha_ult_mant
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      'Maquinaria'
+    );
+
+    XLSX.writeFile(workbook, 'reporte_maquinaria.xlsx');
+  };
+
+  const filtered = maquinaria.filter((m) => {
+    const matchesSearch =
+      m.placa.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.tipo.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesCategory =
+      categoryFilter === 'TODOS' ||
+      m.tipo === categoryFilter;
+
+    return matchesSearch && matchesCategory;
+  });
 
   const stats = {
     total: maquinaria.length,
     disponibles: maquinaria.filter(m => m.estado === 'DISPONIBLE').length,
-    enUso: maquinaria.filter(m => m.estado === 'OCUPADO').length, // Ajustado a OCUPADO
+    enUso: maquinaria.filter(m => m.estado === 'OCUPADO').length,
     mantenimiento: maquinaria.filter(m => m.estado === 'MANTENIMIENTO').length,
   };
 
@@ -154,7 +230,25 @@ export default function AgroMaquinarias() {
           </p>
         </div>
         
-        <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
+        <div className="flex flex-col lg:flex-row w-full md:w-auto gap-3">
+          {/* FILTRO POR CATEGORÍA */}
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="px-4 py-2.5 border border-slate-200 rounded-md text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white shadow-sm transition-all"
+          >
+            <option value="TODOS">TODAS LAS CATEGORÍAS</option>
+            <option value="TRACTOR">TRACTOR</option>
+            <option value="COSECHADORA">COSECHADORA</option>
+            <option value="SEMBRADORA">SEMBRADORA</option>
+            <option value="PULVERIZADORA">PULVERIZADORA</option>
+            <option value="CAMIONETA">CAMIONETA</option>
+            <option value="CAMIÓN">CAMIÓN</option>
+            <option value="IMPLEMENTO">IMPLEMENTO</option>
+            <option value="OTRO">OTRO</option>
+          </select>
+
+          {/* BUSCADOR */}
           <div className="relative flex-1 md:w-64">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -164,12 +258,39 @@ export default function AgroMaquinarias() {
             <input 
               type="text" placeholder="BUSCAR PLACA O TIPO..." 
               value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-md text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white shadow-sm"
+              className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-md text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white shadow-sm transition-all"
             />
           </div>
+
+          {/* BOTONES DE EXPORTACIÓN */}
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={exportToCSV}
+              className="bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 px-4 py-2.5 rounded-lg font-semibold text-[10px] uppercase tracking-wider transition-all duration-200 active:scale-95 shadow-sm flex items-center justify-center gap-2 whitespace-nowrap"
+              title="Descargar reporte en formato CSV"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              CSV
+            </button>
+
+            <button
+              onClick={exportToExcel}
+              className="bg-[#1A5729]/10 hover:bg-[#1A5729]/15 border border-[#1A5729]/20 hover:border-[#1A5729]/30 text-[#1A5729] px-4 py-2.5 rounded-lg font-semibold text-[10px] uppercase tracking-wider transition-all duration-200 active:scale-95 shadow-sm flex items-center justify-center gap-2 whitespace-nowrap"
+              title="Descargar reporte en formato Excel"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              EXCEL
+            </button>
+          </div>
+
+          {/* BOTÓN NUEVO EQUIPO */}
           <button 
             onClick={openAddModal}
-            className="bg-[#1A5729] hover:bg-[#144320] text-white px-6 py-2.5 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-md flex items-center justify-center gap-2"
+            className="bg-[#1A5729] hover:bg-[#144320] text-white px-6 py-2.5 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-md flex items-center justify-center gap-2 whitespace-nowrap"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
             NUEVO EQUIPO
@@ -332,7 +453,7 @@ export default function AgroMaquinarias() {
               {/* Sección 1: Identificación */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 bg-white p-4 sm:p-6 rounded-md border border-slate-200 shadow-sm">
                 
-                {/* AQUI SE CAMBIO INPUT TEXT POR SELECT */}
+                {/* CLASIFICACIÓN / TIPO */}
                 <div className="md:col-span-1">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 sm:mb-2">Clasificación / Tipo *</label>
                   <select 
@@ -354,12 +475,14 @@ export default function AgroMaquinarias() {
                   </select>
                 </div>
 
+                {/* PLACA OFICIAL */}
                 <div className="md:col-span-1">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 sm:mb-2">Placa Oficial / Nro. Serie *</label>
                   <input type="text" required name="placa" value={formData.placa} onChange={handleChange} placeholder="TRC-000"
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300 rounded text-sm font-black font-mono outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-blue-50/30 text-blue-900 uppercase" />
                 </div>
 
+                {/* MARCA - MODELO */}
                 <div className="md:col-span-2">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 sm:mb-2">Marca - Modelo</label>
                   <input type="text" name="modelo" value={formData.modelo} onChange={handleChange} placeholder="EJ: JOHN DEERE 5090E (2022)"

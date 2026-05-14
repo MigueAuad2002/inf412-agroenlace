@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 // Asegúrate de que esta ruta sea correcta según tu estructura de carpetas
 import '../tabs/terrenos_tab.dart'; 
+import '../tabs/ordenes_tab.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -310,16 +311,7 @@ class CampaniasTab extends StatelessWidget {
   }
 }
 
-// =====================================================================
-// TAB DE ÓRDENES (Placeholder)
-// =====================================================================
-class OrdenesTab extends StatelessWidget {
-  const OrdenesTab({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text("Módulo de Órdenes"));
-  }
-}
+
 
 // =====================================================================
 // TAB DE PERFIL (Corporativo)

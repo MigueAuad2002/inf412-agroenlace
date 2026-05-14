@@ -99,3 +99,45 @@ def remove_work_order(data, supervisor_id):
         return {'success': False, 'message': f'Error: {str(e)}'}, 500
     finally:
         db.close_connection()
+
+
+def update_work_order_by_employee(data, employee_id):
+    nro_orden = data.get('nro_orden')
+    estado = data.get('estado')
+
+    # Validaciones básicas
+    if not nro_orden or not estado:
+        return {'success': False, 'message': 'Faltan datos obligatorios (nro_orden o estado).'}, 400
+
+    # Limpiamos el estado para evitar errores tipográficos
+    estado_limpio = str(estado).strip().upper()
+    estados_permitidos = ['PENDIENTE', 'EN PROCESO', 'FINALIZADA']
+    
+    if estado_limpio not in estados_permitidos:
+        return {'success': False, 'message': 'El estado enviado no es válido.'}, 400
+
+    # Campos opcionales
+    reporte = data.get('reporte_texto', None)
+    url_img = data.get('url_imagen', None)
+    url_audio = data.get('url_audio', None)
+
+    try:
+        db.create_connection()
+        
+        filas_afectadas = ordenes_repo.update_orden_empleado_db(
+            nro_orden, employee_id, estado_limpio, reporte, url_img, url_audio
+        )
+        
+        if filas_afectadas > 0:
+            db.insert_log(f"EMPLEADO {employee_id} ACTUALIZÓ ORDEN #{nro_orden} A {estado_limpio}", employee_id)
+            return {'success': True, 'message': 'Orden actualizada correctamente.'}, 200
+            
+        return {
+            'success': False, 
+            'message': 'No se pudo actualizar. Verifique que la orden exista y le haya sido asignada a usted.'
+        }, 404
+        
+    except Exception as e:
+        return {'success': False, 'message': f'Error interno: {str(e)}'}, 500
+    finally:
+        db.close_connection()

@@ -47,3 +47,16 @@ def assign_employee_db(nro_orden, id_empleado):
 def delete_work_order_db(nro_orden):
     query = f"DELETE FROM {Config.SCHEMA}.{Config.T_ORDEN} WHERE nro_orden = %s"
     return db.execute_query(query, (nro_orden,), commit=True)
+
+def update_orden_empleado_db(nro_orden, id_empleado, estado, reporte, url_img, url_audio):
+    """Actualiza estado y reportes. Solo afecta si la orden pertenece a ese empleado."""
+    query = f"""
+        UPDATE {Config.SCHEMA}.{Config.T_ORDEN}
+        SET estado = %s,
+            reporte_texto = %s,
+            url_imagen = %s,
+            url_audio = %s
+        WHERE nro_orden = %s AND id_empleado = %s
+    """
+    params = (estado, reporte, url_img, url_audio, nro_orden, id_empleado)
+    return db.execute_query(query, params, commit=True)

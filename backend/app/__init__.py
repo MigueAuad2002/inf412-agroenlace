@@ -29,4 +29,6 @@ def create_app():
         allow_headers=["Content-Type", "Authorization"]
     )
 
+    app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024 
+
     return app

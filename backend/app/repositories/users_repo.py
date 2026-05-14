@@ -24,3 +24,10 @@ def update_user_dynamic(username, fields, params):
 
 # Nota: Puedes reutilizar auth_repo.check_user_exists e insert_user 
 # o definirlos aquí si prefieres independencia total.
+def get_all_employees():
+    query = f"""
+        SELECT id_usuario, user_name, nombre_razon_social
+        FROM {Config.SCHEMA}.{Config.T_USER}
+        WHERE id_rol = 3
+    """
+    return db.execute_query(query, fetchall=True)

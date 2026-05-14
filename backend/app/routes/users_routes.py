@@ -43,3 +43,29 @@ def delete_users():
 def update_users():
     res, status = users_service.modify_user(request.get_json())
     return jsonify(res), status
+def boss_required(func):
+    """Valida que sea Admin (1) o Supervisor (2) para ver la lista de empleados"""
+    def wrapper(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'success': False, 'message': 'No autenticado'}), 401
+        
+        token = auth_header.split(" ")[1]
+        validation = decode_access_token(token)
+        
+        if not validation['success']:
+            return jsonify({'success': False, 'message': 'Token inválido'}), 401
+            
+        rol = int(validation.get('payload', {}).get('role', 0))
+        if rol not in [1, 2]:
+            return jsonify({'success': False, 'message': 'Acceso denegado. Se requiere ser Admin o Supervisor.'}), 403
+            
+        return func(*args, **kwargs)
+    wrapper.__name__ = func.__name__
+    return wrapper
+
+@users_routes.route('/api/get-empleados', methods=['GET'])
+@boss_required
+def get_empleados():
+    res, status = users_service.get_employees_list()
+    return jsonify(res), status

@@ -18,6 +18,7 @@ import SecurityRole from "./pages/SecurityRole";
 import AgroLotes from "./pages/AgroLotes";
 import AgroCampanias from "./pages/AgroCampanias";
 import AgroMaquinarias from "./pages/AgroMaquinarias";
+import AgroBodega from "./pages/AgroBodega";
 import Downloads from "./pages/Downloads";
 import Profile from "./pages/Profile";
 
@@ -65,6 +66,7 @@ function AnimatedRoutes() {
             <Route path="/agro/lote" element={<AgroLotes />} />
             <Route path="/agro/campana" element={<AgroCampanias/>} />
             <Route path="/agro/maquinaria" element={<AgroMaquinarias/>} />
+            <Route path="/agro/cultivo" element={<AgroBodega />} />
 
             {/* Rutas en construcción*/}
             
@@ -91,4 +93,5 @@ export default function App() {
       </div>
     </BrowserRouter>
   );
+
 }

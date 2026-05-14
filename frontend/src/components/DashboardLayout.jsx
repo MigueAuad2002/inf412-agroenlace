@@ -46,7 +46,8 @@ export default function DashboardLayout() {
         {nombre:'Terrenos - Lotes',ruta:'/agro/lote'},
         {nombre:'Campañas de Siembra/Cosecha',ruta:'/agro/campana'},
         {nombre:'Ordenes de Trabajo',ruta:'/agro/ordenes'},
-        {nombre:'Gestion de Maquinaria',ruta:'/agro/maquinaria'}
+        {nombre:'Gestion de Maquinaria',ruta:'/agro/maquinaria'},
+        {nombre:'Bodega de Cultivos',ruta:'/agro/cultivo'}
       ]
     },
     {

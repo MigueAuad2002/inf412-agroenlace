@@ -1,15 +1,11 @@
 import os
 import json
 from datetime import date
-from cerebras.cloud.sdk import Cerebras
+from groq import Groq
 
 from ..repositories import prediccion_repo
 from ..config import db
 from .aux_functs import decode_access_token
-
-
-MODEL = "qwen-3-235b-a22b-instruct-2507"
-
 
 def predecir_rendimiento(auth_header: str, id_campana: int) -> tuple[dict, int]:
     if not auth_header or not auth_header.startswith('Bearer '):
@@ -30,7 +26,7 @@ def predecir_rendimiento(auth_header: str, id_campana: int) -> tuple[dict, int]:
             return {'success': False, 'message': f'Campaña con id {id_campana} no encontrada.'}, 404
 
         prompt = _construir_prompt(contexto)
-        respuesta_texto = _llamar_cerebras(prompt)
+        respuesta_texto = _llamar_ia(prompt)
         resultado = _parsear_respuesta(respuesta_texto)
 
         return {
@@ -156,21 +152,19 @@ Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin bloque
 """
 
 
-def _llamar_cerebras(prompt: str) -> str:
-    api_key = os.getenv("CEREBRAS_API_KEY")
+def _llamar_ia(prompt: str) -> str:
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise EnvironmentError("La variable de entorno CEREBRAS_API_KEY no está configurada.")
+        raise EnvironmentError("La variable GROQ_API_KEY no está configurada.")
 
-    client = Cerebras(api_key=api_key)
-    completion = client.chat.completions.create(
+    client = Groq(api_key=api_key)
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
-        model=MODEL,
-        max_completion_tokens=512,
+        max_tokens=512,
         temperature=0.2,
-        top_p=1,
-        stream=False,
     )
-    return completion.choices[0].message.content.strip()
+    return response.choices[0].message.content.strip()
 
 
 def _parsear_respuesta(texto: str) -> dict:

@@ -41,6 +41,8 @@ dependencies:
   jwt_decoder: ^2.0.1
   image_picker: ^1.0.7    # Para usar la cámara
   speech_to_text: ^7.3.0  # Para transcribir voz a texto
+  record: ^5.1.0          # Para grabar audio directamente
+  path_provider: ^2.1.4   # Para guardar archivos
 
 dev_dependencies:
   flutter_test:
@@ -52,7 +54,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-
+dependency_overrides:
+  record_platform_interface: 1.2.0
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

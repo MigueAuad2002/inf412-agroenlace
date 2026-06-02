@@ -13,8 +13,9 @@ def get_work_orders_db(employee_id=None):
             us.user_name AS supervisor_username,
             o.id_empleado,
             ue.user_name AS empleado_username,
-            o.reporte_texto, -- NUEVA COLUMNA
-            o.url_imagen    -- NUEVA COLUMNA
+            o.reporte_texto,
+            o.url_imagen,
+            o.url_audio  -- AÑADIDO PARA RECUPERAR EL AUDIO
         FROM {Config.SCHEMA}.{Config.T_ORDEN} o
         LEFT JOIN {Config.SCHEMA}.{Config.T_USER} us ON us.id_usuario = o.id_supervisor
         LEFT JOIN {Config.SCHEMA}.{Config.T_USER} ue ON ue.id_usuario = o.id_empleado
@@ -45,7 +46,6 @@ def delete_work_order_db(nro_orden):
     return db.execute_query(query, (nro_orden,), commit=True)
 
 def update_orden_empleado_db(nro_orden, id_empleado, estado, reporte, url_img, url_audio):
-    """Actualiza estado y reportes. Solo afecta si la orden pertenece a ese empleado."""
     query = f"""
         UPDATE {Config.SCHEMA}.{Config.T_ORDEN}
         SET estado = %s,

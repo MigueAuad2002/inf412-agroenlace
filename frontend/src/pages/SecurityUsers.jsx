@@ -131,16 +131,27 @@ export default function SecurityUsers() {
 
   const openEditModal = (u) => {
     setIsEditing(true);
+    
+    // Deducimos el id_role para el formulario si el backend solo envía el texto
+    let rolValue = getVal(u, 'id_rol');
+    if (!rolValue) {
+        const rolStr = String(getVal(u, 'rol')).toUpperCase();
+        if(rolStr === 'ADMINISTRADOR') rolValue = 1;
+        else if(rolStr === 'SUPERVISOR') rolValue = 2;
+        else if(rolStr === 'EMPLEADO') rolValue = 3;
+        else rolValue = 4; // CLIENTE por defecto
+    }
+
     setFormData({
       id_usuario: getVal(u, 'id_usuario') || '', 
       user: getVal(u, 'user_name') || '',
       doc: getVal(u, 'documento_identidad') || '',
       name: getVal(u, 'nombre_razon_social') || '',
-      mail: getVal(u, 'correo') || '', 
+      mail: getVal(u, 'mail') || getVal(u, 'correo') || '', 
       number: getVal(u, 'telefono') || '',
       dir: getVal(u, 'direccion') || '',
       password: '', 
-      id_role: getVal(u, 'id_rol') || 4,
+      id_role: Number(rolValue) || 4,
       id_empresa: getVal(u, 'id_empresa') || ''
     });
     setShowModal(true);
@@ -153,13 +164,22 @@ export default function SecurityUsers() {
            String(getVal(u, 'documento_identidad')).toLowerCase().includes(term);
   });
 
-  const getNombreRol = (idRole) => {
-    const n = Number(idRole);
-    if(n === 1) return 'ADMINISTRADOR';
-    if(n === 2) return 'SUPERVISOR';
-    if(n === 3) return 'EMPLEADO';
-    if(n === 4) return 'CLIENTE';
-    return getVal(usuarios.find(u => Number(getVal(u, 'id_rol')) === n), 'rol') || 'USUARIO';
+  const getNombreRol = (u) => {
+    // 1. Prioridad: Leemos directamente el string que manda el backend
+    const rolTexto = getVal(u, 'rol');
+    if (rolTexto) {
+      return String(rolTexto).toUpperCase();
+    }
+
+    // 2. Respaldo: Si por algún motivo no llega el string, leemos el ID numérico
+    const n = Number(getVal(u, 'id_rol'));
+    if (n === 1) return 'ADMINISTRADOR';
+    if (n === 2) return 'SUPERVISOR';
+    if (n === 3) return 'EMPLEADO';
+    if (n === 4) return 'CLIENTE';
+
+    // 3. Por defecto si todo falla
+    return 'USUARIO';
   };
 
   return (
@@ -184,7 +204,7 @@ export default function SecurityUsers() {
             onChange={(e) => setFiltroEmpresa(e.target.value)} 
             className="px-4 py-2.5 border border-slate-200 rounded-md text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white shadow-sm text-[#1A5729]"
           >
-            <option value="">🏢 Todas las Empresas</option>
+            <option value="">Todas las Empresas</option>
             {empresas.map(emp => (
               <option key={emp.id_empresa} value={emp.id_empresa}>{emp.nombre_empresa}</option>
             ))}
@@ -236,7 +256,9 @@ export default function SecurityUsers() {
           </div>
           <div>
             <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Administradores</p>
-            <p className="text-lg md:text-xl font-black text-purple-700">{usuarios.filter(u => Number(getVal(u, 'id_rol')) === 1).length}</p>
+            <p className="text-lg md:text-xl font-black text-purple-700">
+              {usuarios.filter(u => String(getVal(u, 'rol')).toUpperCase() === 'ADMINISTRADOR').length}
+            </p>
           </div>
         </div>
         <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
@@ -245,7 +267,9 @@ export default function SecurityUsers() {
           </div>
           <div>
             <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Personal Base</p>
-            <p className="text-lg md:text-xl font-black text-blue-700">{usuarios.filter(u => Number(getVal(u, 'id_rol')) === 3).length}</p>
+            <p className="text-lg md:text-xl font-black text-blue-700">
+              {usuarios.filter(u => String(getVal(u, 'rol')).toUpperCase() === 'EMPLEADO').length}
+            </p>
           </div>
         </div>
         <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
@@ -294,14 +318,14 @@ export default function SecurityUsers() {
                 </tr>
               ) : (
                 usuariosFiltrados.map((u) => {
-                  const idRol = Number(getVal(u, 'id_rol'));
+                  const nombreRol = getNombreRol(u);
 
                   const badgeClass =
-                    idRol === 1
+                    nombreRol === 'ADMINISTRADOR'
                       ? 'bg-purple-100 text-purple-800'
-                      : idRol === 2
+                      : nombreRol === 'SUPERVISOR'
                       ? 'bg-blue-100 text-blue-800'
-                      : idRol === 3
+                      : nombreRol === 'EMPLEADO'
                       ? 'bg-emerald-100 text-emerald-800'
                       : 'bg-slate-200 text-slate-700';
 
@@ -330,7 +354,7 @@ export default function SecurityUsers() {
                         </div>
 
                         <div className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 tracking-widest">
-                          {getVal(u, 'correo')}
+                          {getVal(u, 'mail')}
                         </div>
                       </td>
 
@@ -351,7 +375,7 @@ export default function SecurityUsers() {
                         <span
                           className={`px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest ${badgeClass}`}
                         >
-                          {getNombreRol(idRol)}
+                          {nombreRol}
                         </span>
                       </td>
 
@@ -418,7 +442,7 @@ export default function SecurityUsers() {
                   ASIGNACIÓN DE EMPRESA (TENANT) *
                 </label>
                 <select 
-                  required name="id_empresa" value={formData.id_empresa} onChange={handleChange}
+                  name="id_empresa" value={formData.id_empresa} onChange={handleChange}
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-blue-300 rounded text-xs font-black uppercase outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 bg-white cursor-pointer text-blue-900"
                 >
                   <option value="" disabled>-- SELECCIONE LA EMPRESA --</option>

@@ -101,6 +101,7 @@ def validate_user(data:dict)->tuple[dict,int]:
         mail=result[4]
         role_id=result[5]
         account_stat=result[6]
+        id_empresa=result[7]
 
         #INICIO DE SESION FALLIDO: CUENTA SUSPENDIDA
         if account_stat!='ACTIVO':
@@ -124,6 +125,7 @@ def validate_user(data:dict)->tuple[dict,int]:
             user_id=user_id,
             user_name=user_name,
             role=role_id,
+            id_tenant=id_empresa,
             name=name)
         
         print(f"Login exitoso para el usuario: {user_name}")
@@ -135,7 +137,8 @@ def validate_user(data:dict)->tuple[dict,int]:
                 'id_usuario':user_id,
                 'nombre_razon_social':name,
                 'correo':mail,
-                'id_rol':role_id
+                'id_rol':role_id,
+                'id_empresa':id_empresa
             }
         },200
 

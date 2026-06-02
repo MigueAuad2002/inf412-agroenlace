@@ -1,67 +1,40 @@
 import { create } from 'zustand';
 
-//FUNCION AUXILIAR PARA LEER EL TOKEN Y VALIDAR SI ESTA ACTIVO
-const checkTokenValidity = (token) => {
-  if (!token) return false;
-  
-  try 
-  {
-    //ASEGURARSE DE QUE EL TOKEN ESTA DIVIDIDO EN 3 PARTES
-    const parts = token.split('.');
-
-    //SI NO TIENE 3 PARTES NO ES VALIDO Y RETORNA FALSO
-    if (parts.length !== 3) return false; 
-
-    //DECODIFICAR EL PAYLOAD (PARTE DEL MEDIO) DE BASE 64 A JSON
-    const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const decodedJson = atob(payloadBase64);
-    const payload = JSON.parse(decodedJson);
-    
-    //VERIFICAR SI EXPIRO
-    const currentTime = Date.now() / 1000;
-    if (payload.exp < currentTime) 
-    {
-      console.warn("El token ha expirado.");
-      return false; 
-    }
-    
-    //DEVOLVER TRUE EN CASO DE QUE SEA UN TOKEN VALIDO Y NO HAYA EXPIRADO
-    return true; 
-  } 
-  catch (error) 
-  {
-    //RETORNAR FALSO EN CASO DE QUE EL PARSEO A JSON FALLE OSEA QUE NO ERA UN TOKEN VALIDO
-    return false; 
-  }
-};
-
-//LEER ALMACENAMIENTO
+// 1. LEER ALMACENAMIENTO DIRECTAMENTE
 const storedToken = localStorage.getItem('token');
-const storedUser = JSON.parse(localStorage.getItem('user'));
+const storedUser = localStorage.getItem('user');
 
-//APLICAR VALIDACION
-const isValid = checkTokenValidity(storedToken);
+// 2. PARSEAR USUARIO DE FORMA SEGURA
+let parsedUser = null;
+try {
+  if (storedUser) {
+    parsedUser = JSON.parse(storedUser);
+  }
+} catch (error) {
+  console.error("Error al leer el usuario del localStorage", error);
+}
 
-export const useAuthStore = create((set) => ({
-  //GUARDAMOS EN LOCALSTORAGE SOLO SI EL TOKEN ES VALIDO
-  token: isValid ? storedToken : null,
-  user: isValid ? storedUser : null,
+// 3. CREAR EL STORE
+export const useAuthStore = create((set, get) => ({
+  // Guardamos los datos directamente si existen en el navegador
+  token: storedToken || null,
+  user: parsedUser || null,
 
-  //ACCION PARA INICIAR SESION
+  // ACCIÓN PARA INICIAR SESIÓN
   login: (token, user) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
     set({ token, user });
   },
 
-  //ACCION PARA CERRAR SESION
+  // ACCIÓN PARA CERRAR SESIÓN
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     set({ token: null, user: null });
   },
 
-  //ACCION PARA ACTUALIZAR DATOS DEL USUARIO EN SESION
+  // ACCIÓN PARA ACTUALIZAR DATOS DEL USUARIO EN SESIÓN
   updateUser: (updatedUserData) => {
     const currentUser = get().user;
     const newUser = { ...currentUser, ...updatedUserData };

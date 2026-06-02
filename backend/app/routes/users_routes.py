@@ -48,7 +48,6 @@ def boss_required(func):
 @users_routes.route('/api/get-users', methods=['GET'])
 @admin_required
 def get_users():
-    # Extraemos id_empresa de la URL si existe (ej: ?id_empresa=5)
     id_empresa = request.args.get('id_empresa')
     res, status = users_service.get_users_list(id_empresa)
     return jsonify(res), status

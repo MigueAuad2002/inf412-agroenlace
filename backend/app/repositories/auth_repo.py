@@ -14,21 +14,21 @@ def check_user_exists(doc,mail,user_name):
     return db.execute_query(check_query,check_params,fetchone=True)
 
 
-def insert_user(user,doc,name,mail,number,direction,password_hash,id_role=4):
+def insert_user(user,doc,name,mail,number,direction,password_hash,id_role=4,id_empresa=None):
     if direction:
         insert_query = f"""
             INSERT INTO {Config.SCHEMA}.{Config.T_USER} 
-            (USER_NAME,PASSWORD_HASH,DOCUMENTO_IDENTIDAD,NOMBRE_RAZON_SOCIAL,DIRECCION,CORREO,TELEFONO,ID_ROL)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            (USER_NAME,PASSWORD_HASH,DOCUMENTO_IDENTIDAD,NOMBRE_RAZON_SOCIAL,DIRECCION,CORREO,TELEFONO,ID_ROL,ID_EMPRESA)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """
-        params = (user, password_hash, doc, name, direction, mail, number, id_role)
+        params = (user, password_hash, doc, name, direction, mail, number, id_role, id_empresa)
     else:
         insert_query = f"""
             INSERT INTO {Config.SCHEMA}.{Config.T_USER} 
-            (USER_NAME,PASSWORD_HASH,DOCUMENTO_IDENTIDAD,NOMBRE_RAZON_SOCIAL,CORREO,TELEFONO,ID_ROL)
-            VALUES (%s,%s,%s,%s,%s,%s,%s)
+            (USER_NAME,PASSWORD_HASH,DOCUMENTO_IDENTIDAD,NOMBRE_RAZON_SOCIAL,CORREO,TELEFONO,ID_ROL,ID_EMPRESA)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
         """
-        params=(user, password_hash, doc, name, mail, number, id_role)
+        params=(user, password_hash, doc, name, mail, number, id_role, id_empresa)
 
     return db.execute_query(query=insert_query,params=params,commit=True)
 
@@ -44,7 +44,7 @@ def get_user_id_by_username(username):
 
 def extract_login_user(user_input):
     query=f"""
-            SELECT ID_USUARIO, USER_NAME, PASSWORD_HASH, NOMBRE_RAZON_SOCIAL, CORREO, ID_ROL, ESTADO_CUENTA
+            SELECT ID_USUARIO, USER_NAME, PASSWORD_HASH, NOMBRE_RAZON_SOCIAL, CORREO, ID_ROL, ESTADO_CUENTA,ID_EMPRESA
             FROM {Config.SCHEMA}.{Config.T_USER}
             WHERE UPPER(CORREO) = %s OR USER_NAME = %s
     """

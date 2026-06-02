@@ -41,7 +41,7 @@ export default function DashboardLayout() {
   const menuSidebarBase = [
     {
       modulo: 'Producción Agrícola',
-      rolesPermitidos: [1, 2, 3], 
+      rolesPermitidos: [1, 2, 3,4], 
       submenus: [
         {nombre:'Terrenos - Lotes',ruta:'/agro/lote'},
         {nombre:'Campañas de Siembra/Cosecha',ruta:'/agro/campana'},
@@ -53,15 +53,20 @@ export default function DashboardLayout() {
     {
       modulo: 'Ventas y Comercialización',
       rolesPermitidos: [1, 2, 3, 4], 
-      submenus: []
+      submenus: [
+        {nombre: 'Ventas - Pedidos', ruta:'/ventas/catalogo'},
+        {nombre: 'Historial de Pedidos', ruta:'/ventas/historial'}
+      ]
     },
     {
       modulo: 'Seguridad y Accesos',
       rolesPermitidos: [1], 
       submenus: [
         { nombre: 'Usuarios y Roles', ruta: '/security/users' },
+        { nombre: 'Tenants/Empresas', ruta: 'security/tenants'},
         { nombre: 'Roles y Funcionalidades', ruta: '/security/roles' },
-        { nombre: 'Bitácora del Sistema', ruta: '/security/audit' }
+        { nombre: 'Bitácora del Sistema', ruta: '/security/audit' },
+        { nombre: 'BackUp y Respaldo', ruta: 'security/backup'},
       ]
     }
   ];

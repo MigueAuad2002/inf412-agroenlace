@@ -3,7 +3,7 @@ from ..config import Config
 import jwt
 
 
-def create_access_token(user_id,user_name,role,name,minutes=120):
+def create_access_token(user_id,user_name,role,id_tenant,name,minutes=120):
     """
     GENERA EL JWT PARA LA SESION DEL USUARIO
     """

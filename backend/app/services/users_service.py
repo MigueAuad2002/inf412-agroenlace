@@ -5,7 +5,8 @@ from ..config import db
 def get_users_list(id_empresa=None):
     try:
         db.create_connection()
-        # Pasamos el id_empresa al repositorio
+        
+        #PASAMOS EL ID_EMPRESA PARA SELECCIONAR POR TENANT
         result = users_repo.get_all_users(id_empresa)
         
         data = []

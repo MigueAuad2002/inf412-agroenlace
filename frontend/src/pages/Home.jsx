@@ -56,7 +56,7 @@ export default function Home() {
       id: 'comercial',
       titulo: 'Ventas y Comercialización',
       desc: 'Gestión de contratos, control de precios de granos, despachos y seguimiento de entregas.',
-      ruta: '/comercial',
+      ruta: '/ventas/catalogo',
       color: 'text-blue-600 dark:text-blue-400',
       bg: 'bg-blue-50 dark:bg-blue-500/10',
       borde: 'hover:border-blue-500 dark:hover:border-blue-400',

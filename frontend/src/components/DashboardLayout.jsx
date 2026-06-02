@@ -59,6 +59,13 @@ export default function DashboardLayout() {
       ]
     },
     {
+      modulo: 'CRM y Clientes',
+      rolesPermitidos: [1, 2, 3, 4], 
+      submenus: [
+        {nombre:'Gestión de Clientes',ruta:'/crm/clientes'}
+      ]
+    },
+    {
       modulo: 'Seguridad y Accesos',
       rolesPermitidos: [1], 
       submenus: [

@@ -27,7 +27,15 @@ class Config:
     T_TERRENO='TERRENO'
     T_CAMPANA='CAMPANA_CULTIVO'
     T_MAQUINA='MAQUINARIA'
-    
+
+    # ==========================
+    # TABLAS CRM
+    # ==========================
+    T_TRANSACCION_COMERCIAL = 'transaccion_comercial'
+
+    # Según tu servicio actual, cuando creas usuario usas id_role = 4 por defecto.
+    # Tomamos ese rol como CLIENTE.
+    CLIENT_ROLE_ID = 4    
 
 db=PostgreSQL(
     Config.DB_HOST,

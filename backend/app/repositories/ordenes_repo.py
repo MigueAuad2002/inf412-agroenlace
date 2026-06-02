@@ -13,8 +13,9 @@ def get_work_orders_db(employee_id=None):
             us.user_name AS supervisor_username,
             o.id_empleado,
             ue.user_name AS empleado_username,
-            o.reporte_texto, -- NUEVA COLUMNA
-            o.url_imagen    -- NUEVA COLUMNA
+            o.reporte_texto,
+            o.url_imagen,
+            o.url_audio
         FROM {Config.SCHEMA}.{Config.T_ORDEN} o
         LEFT JOIN {Config.SCHEMA}.{Config.T_USER} us ON us.id_usuario = o.id_supervisor
         LEFT JOIN {Config.SCHEMA}.{Config.T_USER} ue ON ue.id_usuario = o.id_empleado

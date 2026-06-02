@@ -13,7 +13,7 @@ def get_ordenes_logic(user_id, role_id):
                 'nro_orden', 'tipo_trabajo', 'fecha_inicio', 'fecha_fin', 
                 'estado', 'id_campana', 'id_supervisor', 'supervisor_username', 
                 'id_empleado', 'empleado_username', 
-                'reporte_texto', 'url_imagen' # AGREGAR ESTAS DOS
+                'reporte_texto', 'url_imagen', 'url_audio' 
             ]
             for row in result:
                 data.append(dict(zip(columns, row)))
@@ -37,7 +37,6 @@ def create_work_order(data, supervisor_id):
     f_inicio = data.get('fecha_inicio')
     id_campana = data.get('id_campana')
     
-    # CORRECCIÓN: Si llega un string vacío "", lo convertimos a None (NULL en PostgreSQL)
     f_fin = data.get('fecha_fin')
     if not f_fin:  
         f_fin = None
@@ -102,18 +101,16 @@ def update_work_order_by_employee(data, employee_id):
     nro_orden = data.get('nro_orden')
     estado = data.get('estado')
 
-    # Validaciones básicas
     if not nro_orden or not estado:
         return {'success': False, 'message': 'Faltan datos obligatorios (nro_orden o estado).'}, 400
 
-    # Limpiamos el estado para evitar errores tipográficos
     estado_limpio = str(estado).strip().upper()
     estados_permitidos = ['PENDIENTE', 'EN PROCESO', 'FINALIZADA']
     
     if estado_limpio not in estados_permitidos:
         return {'success': False, 'message': 'El estado enviado no es válido.'}, 400
 
-    # Campos opcionales
+    # Extraer los datos y urls del diccionario 'data'
     reporte = data.get('reporte_texto', None)
     url_img = data.get('url_imagen', None)
     url_audio = data.get('url_audio', None)

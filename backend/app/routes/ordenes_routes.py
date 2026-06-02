@@ -72,3 +72,17 @@ def delete_orden():
     sup_id = request.user_payload.get('id_usuario', request.user_payload.get('user_id'))
     res, status = ordenes_service.remove_work_order(request.get_json(), sup_id)
     return jsonify(res), status
+
+@ordenes_routes.route('/api/update-mi-orden', methods=['POST'])
+@token_required
+def update_mi_orden():
+    # Extraemos el ID del empleado directamente desde el token (seguridad)
+    employee_id = request.user_payload.get('id_usuario', request.user_payload.get('user_id'))
+    
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'success': False, 'message': 'Cuerpo de petición vacío.'}), 400
+        
+    res, status = ordenes_service.update_work_order_by_employee(data, employee_id)
+    return jsonify(res), status

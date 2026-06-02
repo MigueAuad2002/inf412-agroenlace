@@ -39,6 +39,8 @@ dependencies:
   flutter_secure_storage: ^10.0.0
   flutter_dotenv: ^6.0.0
   jwt_decoder: ^2.0.1
+  image_picker: ^1.0.7    # Para usar la cámara
+  speech_to_text: ^7.3.0  # Para transcribir voz a texto
 
 dev_dependencies:
   flutter_test:

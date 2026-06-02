@@ -4,26 +4,23 @@ from ..config import db
 def get_ordenes_logic(user_id, role_id):
     try:
         db.create_connection()
-        
-        # Si es Empleado (Rol 3), filtramos por su ID.
         employee_id_filter = user_id if role_id == 3 else None
-        
         result = ordenes_repo.get_work_orders_db(employee_id_filter)
         
         data = []
         if result:
-            # Mapeamos manualmente según el orden del SELECT en el repo
             columns = [
                 'nro_orden', 'tipo_trabajo', 'fecha_inicio', 'fecha_fin', 
-                'fecha_calculo', 'estado', 'id_campana', 'id_supervisor', 
-                'supervisor_username', 'id_empleado', 'empleado_username'
+                'estado', 'id_campana', 'id_supervisor', 'supervisor_username', 
+                'id_empleado', 'empleado_username', 
+                'reporte_texto', 'url_imagen' # AGREGAR ESTAS DOS
             ]
             for row in result:
                 data.append(dict(zip(columns, row)))
 
         return {
             'success': True,
-            'message': 'Órdenes de trabajo obtenidas exitosamente.',
+            'message': 'Órdenes obtenidas exitosamente.',
             'list_ordenes': data
         }, 200
 
@@ -97,5 +94,47 @@ def remove_work_order(data, supervisor_id):
         
     except Exception as e:
         return {'success': False, 'message': f'Error: {str(e)}'}, 500
+    finally:
+        db.close_connection()
+
+
+def update_work_order_by_employee(data, employee_id):
+    nro_orden = data.get('nro_orden')
+    estado = data.get('estado')
+
+    # Validaciones básicas
+    if not nro_orden or not estado:
+        return {'success': False, 'message': 'Faltan datos obligatorios (nro_orden o estado).'}, 400
+
+    # Limpiamos el estado para evitar errores tipográficos
+    estado_limpio = str(estado).strip().upper()
+    estados_permitidos = ['PENDIENTE', 'EN PROCESO', 'FINALIZADA']
+    
+    if estado_limpio not in estados_permitidos:
+        return {'success': False, 'message': 'El estado enviado no es válido.'}, 400
+
+    # Campos opcionales
+    reporte = data.get('reporte_texto', None)
+    url_img = data.get('url_imagen', None)
+    url_audio = data.get('url_audio', None)
+
+    try:
+        db.create_connection()
+        
+        filas_afectadas = ordenes_repo.update_orden_empleado_db(
+            nro_orden, employee_id, estado_limpio, reporte, url_img, url_audio
+        )
+        
+        if filas_afectadas > 0:
+            db.insert_log(f"EMPLEADO {employee_id} ACTUALIZÓ ORDEN #{nro_orden} A {estado_limpio}", employee_id)
+            return {'success': True, 'message': 'Orden actualizada correctamente.'}, 200
+            
+        return {
+            'success': False, 
+            'message': 'No se pudo actualizar. Verifique que la orden exista y le haya sido asignada a usted.'
+        }, 404
+        
+    except Exception as e:
+        return {'success': False, 'message': f'Error interno: {str(e)}'}, 500
     finally:
         db.close_connection()

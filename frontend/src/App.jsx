@@ -22,6 +22,7 @@ import AgroBodega from "./pages/AgroBodega";
 import Downloads from "./pages/Downloads";
 import Profile from "./pages/Profile";
 import AgroOrdenes from "./pages/AgroOrdenes";
+import AgroCRM from "./pages/ClientesGestion";
 
 
 function AnimatedRoutes() {
@@ -68,6 +69,7 @@ function AnimatedRoutes() {
             <Route path="/agro/campana" element={<AgroCampanias/>} />
             <Route path="/agro/maquinaria" element={<AgroMaquinarias/>} />
             <Route path="/agro/cultivo" element={<AgroBodega />} />
+            <Route path="/crm/clientes" element={<AgroCRM />} />
 
             {/* Rutas en construcción*/}
             

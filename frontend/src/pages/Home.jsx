@@ -70,7 +70,7 @@ export default function Home() {
       id: 'crm',
       titulo: 'Gestión de Clientes (CRM)',
       desc: 'Seguimiento de cartera de clientes, proveedores, historial de interacciones y embudos de venta.',
-      ruta: '/crm',
+      ruta: '/crm/clientes',
       color: 'text-purple-600 dark:text-purple-400',
       bg: 'bg-purple-50 dark:bg-purple-500/10',
       borde: 'hover:border-purple-500 dark:hover:border-purple-400',

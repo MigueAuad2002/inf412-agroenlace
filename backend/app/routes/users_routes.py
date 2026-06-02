@@ -13,7 +13,6 @@ def admin_required(func):
         token = auth_header.split(" ")[1]
         validation = decode_access_token(token)
         
-        # CORRECCIÓN
         payload = validation.get('payload', {})
         rol = int(payload.get('role', payload.get('role', 0)))
         
@@ -36,7 +35,6 @@ def boss_required(func):
         if not validation['success']:
             return jsonify({'success': False, 'message': 'Token inválido'}), 401
             
-        # CORRECCIÓN
         payload = validation.get('payload', {})
         rol = int(payload.get('role', payload.get('role', 0)))
         
@@ -50,7 +48,9 @@ def boss_required(func):
 @users_routes.route('/api/get-users', methods=['GET'])
 @admin_required
 def get_users():
-    res, status = users_service.get_users_list()
+    # Extraemos id_empresa de la URL si existe (ej: ?id_empresa=5)
+    id_empresa = request.args.get('id_empresa')
+    res, status = users_service.get_users_list(id_empresa)
     return jsonify(res), status
 
 @users_routes.route('/api/add-users', methods=['POST'])
@@ -75,5 +75,7 @@ def update_users():
 @users_routes.route('/api/get-empleados', methods=['GET'])
 @boss_required
 def get_empleados():
-    res, status = users_service.get_employees_list()
+    # Extraemos id_empresa de la URL si existe
+    id_empresa = request.args.get('id_empresa')
+    res, status = users_service.get_employees_list(id_empresa)
     return jsonify(res), status

@@ -1,5 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/auth_store';
+
+const getVal = (obj, keyName) => {
+  if (!obj || typeof obj !== 'object') return '';
+  const exactKey = Object.keys(obj).find(k => k.toLowerCase() === keyName.toLowerCase());
+  const value = exactKey ? obj[exactKey] : '';
+  return value !== null && value !== undefined ? value : '';
+};
 
 export default function SecurityUsers() {
   const API_URL = import.meta.env.VITE_API_URL;
@@ -7,335 +14,512 @@ export default function SecurityUsers() {
   const logout = useAuthStore((state) => state.logout); 
   
   const [usuarios, setUsuarios] = useState([]);
+  const [empresas, setEmpresas] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [filtroEmpresa, setFiltroEmpresa] = useState('');
 
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   
-  const [formData, setFormData] = useState({
-    id_usuario: '',
-    user: '',
-    doc: '',
-    name: '',
-    mail: '',
-    number: '',
-    dir: '', 
-    password: '',
-    id_role: 4 
-  });
+  const initialForm = {
+    id_usuario: '', user: '', doc: '', name: '', mail: '', 
+    number: '', dir: '', password: '', id_role: 4, id_empresa: ''
+  };
+  const [formData, setFormData] = useState(initialForm);
 
-  const cargarUsuarios = async () => {
+  const isFetching = useRef(false);
+
+  // 1. CARGA DE DATOS TOTAL (Estrictamente Secuencial)
+  const cargarTodo = async () => {
     setLoading(true);
+    setError('');
     try {
-      const response = await fetch(`${API_URL}/get-users`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
-        }
+      // PASO 1: Cargar empresas
+      const resEmp = await fetch(`${API_URL}/get-empresas`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await response.json();
-      if (response.status === 401 || response.status === 403) {
-        if(response.status === 401) logout();
-        window.location.href = '/login';
-        return;
-      }
-      if (!data.success) throw new Error(data.message || 'Error al obtener usuarios');
       
-      setUsuarios(data.list_users || []);
+      if (resEmp.status === 401 || resEmp.status === 403) {
+        logout(); window.location.href = '/login'; return;
+      }
+      
+      const dataEmp = await resEmp.json();
+      let empresasCargadas = [];
+      if (dataEmp.success) {
+        empresasCargadas = dataEmp.list_empresas || [];
+      }
+
+      // PASO 2: Cargar usuarios
+      const endpoint = filtroEmpresa ? `${API_URL}/get-users?id_empresa=${filtroEmpresa}` : `${API_URL}/get-users`;
+      const resUser = await fetch(endpoint, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const dataUser = await resUser.json();
+      
+      let usuariosCargados = [];
+      if (dataUser.success) {
+        usuariosCargados = dataUser.list_users || [];
+      }
+
+      setEmpresas(empresasCargadas);
+      setUsuarios(usuariosCargados);
     } catch (err) {
-      setError(err.message);
+      setError("Error de conexión con el servidor");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    cargarUsuarios();
-  }, []);
+    if (isFetching.current) return;
+    isFetching.current = true;
+    cargarTodo().finally(() => { isFetching.current = false; });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroEmpresa]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.id_empresa) { alert("Debe seleccionar una empresa válida."); return; }
+
+    const endpoint = isEditing ? '/update-users' : '/add-users';
+    const payload = { ...formData };
+    if (!isEditing) delete payload.id_usuario;
+
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      const res = await response.json();
+      if (res.success) {
+        setShowModal(false);
+        if (!isFetching.current) {
+          isFetching.current = true;
+          cargarTodo().finally(() => { isFetching.current = false; });
+        }
+      } else alert(res.message);
+    } catch (err) { alert('Error al procesar la petición.'); }
+  };
 
   const handleEliminar = async (username) => {
-    if (!window.confirm(`¿Estás seguro de que deseas eliminar al usuario @${username}?`)) {
-      return;
-    }
+    if (!window.confirm(`¿Está seguro de eliminar al usuario @${username}?`)) return;
     try {
       const response = await fetch(`${API_URL}/delete-users`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ user: username })
       });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message);
-      cargarUsuarios(); 
-    } catch (err) {
-      alert(`Error al eliminar: ${err.message}`);
-    }
+      if ((await response.json()).success) {
+        if (!isFetching.current) {
+          isFetching.current = true;
+          cargarTodo().finally(() => { isFetching.current = false; });
+        }
+      }
+    } catch (err) { alert('Error al eliminar.'); }
   };
+
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const openAddModal = () => {
     setIsEditing(false);
-    setFormData({ id_usuario: '', user: '', doc: '', name: '', mail: '', number: '', dir: '', password: '', id_role: 4 });
+    setFormData(initialForm);
     setShowModal(true);
   };
 
-  const openEditModal = (userObj) => {
+  const openEditModal = (u) => {
     setIsEditing(true);
     setFormData({
-      id_usuario: userObj.id_usuario || '', 
-      user: userObj.user_name || '',
-      doc: userObj.documento_identidad || '',
-      name: userObj.nombre_razon_social || '',
-      mail: userObj.correo || '', 
-      number: userObj.telefono || '',
-      dir: userObj.direccion || '',
+      id_usuario: getVal(u, 'id_usuario') || '', 
+      user: getVal(u, 'user_name') || '',
+      doc: getVal(u, 'documento_identidad') || '',
+      name: getVal(u, 'nombre_razon_social') || '',
+      mail: getVal(u, 'correo') || '', 
+      number: getVal(u, 'telefono') || '',
+      dir: getVal(u, 'direccion') || '',
       password: '', 
-      id_role: userObj.id_rol || 4
+      id_role: getVal(u, 'id_rol') || 4,
+      id_empresa: getVal(u, 'id_empresa') || ''
     });
     setShowModal(true);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const endpoint = isEditing ? '/update-users' : '/add-users';
-    try {
-      const response = await fetch(`${API_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message);
-      setShowModal(false);
-      cargarUsuarios();
-    } catch (err) {
-      alert(`Error al guardar: ${err.message}`);
-    }
-  };
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const usuariosFiltrados = usuarios.filter((user) => {
-    const termino = searchTerm.toLowerCase();
-    const id = user.id_usuario ? String(user.id_usuario) : '';
-    const nombre = user.nombre_razon_social ? String(user.nombre_razon_social).toLowerCase() : '';
-    const username = user.user_name ? String(user.user_name).toLowerCase() : '';
-    const ci = user.documento_identidad ? String(user.documento_identidad).toLowerCase() : '';
-
-    return nombre.includes(termino) || username.includes(termino) || ci.includes(termino) || id.includes(termino);
+  const usuariosFiltrados = usuarios.filter((u) => {
+    const term = searchTerm.toLowerCase();
+    return getVal(u, 'nombre_razon_social').toLowerCase().includes(term) || 
+           getVal(u, 'user_name').toLowerCase().includes(term) ||
+           String(getVal(u, 'documento_identidad')).toLowerCase().includes(term);
   });
 
+  const getNombreRol = (idRole) => {
+    const n = Number(idRole);
+    if(n === 1) return 'ADMINISTRADOR';
+    if(n === 2) return 'SUPERVISOR';
+    if(n === 3) return 'EMPLEADO';
+    if(n === 4) return 'CLIENTE';
+    return getVal(usuarios.find(u => Number(getVal(u, 'id_rol')) === n), 'rol') || 'USUARIO';
+  };
+
   return (
-    <div className="animate-fade-in relative max-w-full">
+    <div className="p-4 md:p-8 animate-in fade-in duration-500 bg-slate-50 min-h-screen max-w-[100vw] overflow-x-hidden">
       
-      {/* Cabecera Responsiva */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-5 gap-4">
-        <div className="w-full sm:w-auto">
-          <h3 className="text-xl font-bold text-gray-800 dark:text-white tracking-tight">Usuarios y Roles</h3>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Gestión de cuentas y niveles de acceso.</p>
+      {/* CABECERA */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
+        <div>
+          <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+            <div className="w-2 h-6 md:h-8 bg-[#1A5729]"></div>
+            USUARIOS Y ACCESOS
+          </h1>
+          <p className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-1 ml-5">
+            Gestión de cuentas Multi-Tenant
+          </p>
         </div>
-        <button 
-          onClick={openAddModal}
-          className="w-full sm:w-auto justify-center bg-[#1A5729] hover:bg-[#144320] dark:bg-cyan-600 dark:hover:bg-cyan-700 text-white text-sm sm:text-xs font-semibold px-4 py-2.5 sm:py-2 rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
-        >
-          <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-          Nuevo Usuario
-        </button>
+
+        <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
+          
+          <select 
+            value={filtroEmpresa} 
+            onChange={(e) => setFiltroEmpresa(e.target.value)} 
+            className="px-4 py-2.5 border border-slate-200 rounded-md text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white shadow-sm text-[#1A5729]"
+          >
+            <option value="">🏢 Todas las Empresas</option>
+            {empresas.map(emp => (
+              <option key={emp.id_empresa} value={emp.id_empresa}>{emp.nombre_empresa}</option>
+            ))}
+          </select>
+
+          <div className="relative flex-1 md:w-64">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              type="text" placeholder="BUSCAR USUARIO O CI..."
+              value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-md text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white shadow-sm"
+            />
+          </div>
+
+          <button
+            onClick={openAddModal}
+            className="bg-[#1A5729] hover:bg-[#144320] text-white px-6 py-2.5 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-md flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            CREAR USUARIO
+          </button>
+        </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-3 rounded mb-5 text-sm">
-          <span className="font-semibold">Error:</span> {error}
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 text-sm text-red-700 font-medium">
+          {error}
         </div>
       )}
-      
-      {/* Contenedor Principal */}
-      <div className="bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-slate-700/80 rounded-xl shadow-sm overflow-hidden flex flex-col">
-        
-        {/* Buscador Premium Responsivo */}
-        <div className="px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-slate-700/80 bg-gray-50/40 dark:bg-slate-800/40 flex items-center">
-          <div className="relative w-full sm:w-80">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
-            </div>
-            <input 
-              type="text" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por ID, nombre o CI..." 
-              className="w-full pl-9 pr-4 py-2 sm:py-1.5 text-base sm:text-sm border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-[#0F172A] focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all dark:text-slate-200 placeholder:text-gray-400"
-            />
+
+      {/* DASHBOARD DE KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+        <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
+          <div className="bg-slate-100 p-2 md:p-3 rounded-md text-slate-600">
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+          </div>
+          <div>
+            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Usuarios</p>
+            <p className="text-lg md:text-xl font-black text-slate-800">{usuarios.length}</p>
           </div>
         </div>
-
-        {/* Tabla Densidad Corporativa (Con scroll responsivo) */}
-        <div className="overflow-x-auto custom-scrollbar">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-              <svg className="animate-spin h-6 w-6 text-cyan-600 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <p className="text-xs font-semibold tracking-wider uppercase">Cargando...</p>
-            </div>
-          ) : usuariosFiltrados.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <p className="text-sm font-medium">No se encontraron usuarios.</p>
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse whitespace-nowrap">
-              <thead>
-                <tr className="bg-gray-50/80 dark:bg-slate-800/80 border-b border-gray-200 dark:border-slate-700 text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
-                  <th className="px-4 sm:px-5 py-3 w-12 text-center">ID</th>
-                  <th className="px-4 sm:px-5 py-3">Usuario</th>
-                  <th className="px-4 sm:px-5 py-3">Nombre / Razón Social</th>
-                  <th className="px-4 sm:px-5 py-3">Documento</th>
-                  <th className="px-4 sm:px-5 py-3">Teléfono</th>
-                  <th className="px-4 sm:px-5 py-3">Rol</th>
-                  <th className="px-4 sm:px-5 py-3 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-slate-700/80 text-sm">
-                {usuariosFiltrados.map((user) => (
-                  <tr key={user.id_usuario} className="hover:bg-gray-50/60 dark:hover:bg-slate-800/40 transition-colors group">
-                    <td className="px-4 sm:px-5 py-3 sm:py-2.5 text-center text-gray-400 dark:text-slate-500 font-mono text-xs">{user.id_usuario}</td>
-                    <td className="px-4 sm:px-5 py-3 sm:py-2.5 font-medium text-gray-800 dark:text-slate-200">@{user.user_name?.toLowerCase()}</td>
-                    <td className="px-4 sm:px-5 py-3 sm:py-2.5 text-gray-600 dark:text-slate-300 truncate max-w-[200px]" title={user.nombre_razon_social}>{user.nombre_razon_social}</td>
-                    <td className="px-4 sm:px-5 py-3 sm:py-2.5 text-gray-500 dark:text-slate-400 font-mono text-xs">{user.documento_identidad}</td>
-                    <td className="px-4 sm:px-5 py-3 sm:py-2.5 text-gray-500 dark:text-slate-400">{user.telefono || '-'}</td>
-                    <td className="px-4 sm:px-5 py-3 sm:py-2.5">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
-                        user.rol?.toUpperCase() === 'ADMINISTRADOR'
-                          ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20'
-                          : 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600'
-                      }`}>
-                        {user.rol || 'SIN ROL'}
-                      </span>
-                    </td>
-                    <td className="px-4 sm:px-5 py-3 sm:py-2.5 text-right">
-                      {/* Botones responsivos */}
-                      <div className="flex items-center justify-end gap-2 sm:gap-1 opacity-100 sm:opacity-60 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => openEditModal(user)}
-                          title="Editar"
-                          className="p-2 sm:p-1.5 text-gray-500 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:text-cyan-400 dark:hover:bg-slate-700 rounded transition-colors"
-                        >
-                          <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg>
-                        </button>
-                        <button 
-                          onClick={() => handleEliminar(user.user_name)}
-                          title="Eliminar"
-                          className="p-2 sm:p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-slate-700 rounded transition-colors"
-                        >
-                          <svg fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+        <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
+          <div className="bg-purple-50 p-2 md:p-3 rounded-md text-purple-600">
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+          </div>
+          <div>
+            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Administradores</p>
+            <p className="text-lg md:text-xl font-black text-purple-700">{usuarios.filter(u => Number(getVal(u, 'id_rol')) === 1).length}</p>
+          </div>
+        </div>
+        <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
+          <div className="bg-blue-50 p-2 md:p-3 rounded-md text-blue-600">
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+          </div>
+          <div>
+            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Personal Base</p>
+            <p className="text-lg md:text-xl font-black text-blue-700">{usuarios.filter(u => Number(getVal(u, 'id_rol')) === 3).length}</p>
+          </div>
+        </div>
+        <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
+          <div className="bg-emerald-50 p-2 md:p-3 rounded-md text-emerald-600">
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+          </div>
+          <div>
+            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tenants (Empresas)</p>
+            <p className="text-lg md:text-xl font-black text-emerald-700">{empresas.length}</p>
+          </div>
         </div>
       </div>
 
-      {/* MODAL RESPONSIVO (Bottom-sheet en móvil) */}
+      {/* TABLA PRINCIPAL */}
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden w-full">
+        <div className="overflow-x-auto w-full custom-scrollbar">
+          <table className="w-full min-w-[900px] text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                <th className="px-6 py-4">ID</th>
+                <th className="px-6 py-4">Tenant (Empresa)</th>
+                <th className="px-6 py-4">Credenciales</th>
+                <th className="px-6 py-4">Identificación</th>
+                <th className="px-6 py-4">Rol / Privilegio</th>
+                <th className="px-6 py-4 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan="6"
+                    className="text-center py-20 text-slate-400 font-bold uppercase text-[10px] tracking-widest"
+                  >
+                    Sincronizando con los servidores...
+                  </td>
+                </tr>
+              ) : usuariosFiltrados.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan="6"
+                    className="text-center py-20 text-slate-400 font-bold uppercase text-[10px] tracking-widest"
+                  >
+                    No se encontraron usuarios en el sistema
+                  </td>
+                </tr>
+              ) : (
+                usuariosFiltrados.map((u) => {
+                  const idRol = Number(getVal(u, 'id_rol'));
+
+                  const badgeClass =
+                    idRol === 1
+                      ? 'bg-purple-100 text-purple-800'
+                      : idRol === 2
+                      ? 'bg-blue-100 text-blue-800'
+                      : idRol === 3
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-slate-200 text-slate-700';
+
+                  return (
+                    <tr
+                      key={getVal(u, 'id_usuario')}
+                      className="hover:bg-slate-50 transition-colors group"
+                    >
+                      <td className="px-6 py-4 font-mono text-[10px] font-bold text-slate-400">
+                        USR-{String(getVal(u, 'id_usuario')).padStart(4, '0')}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="inline-flex items-center px-2 py-1 rounded bg-slate-100 border border-slate-200 text-[10px] font-black uppercase text-slate-600">
+                          {empresas.find(
+                            (e) =>
+                              String(e.id_empresa) ===
+                              String(getVal(u, 'id_empresa'))
+                          )?.nombre_empresa || 'NO ASIGNADA'}
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="font-black text-slate-800 text-xs">
+                          @{getVal(u, 'user_name').toLowerCase()}
+                        </div>
+
+                        <div className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 tracking-widest">
+                          {getVal(u, 'correo')}
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div
+                          className="text-xs font-bold text-slate-700 uppercase truncate max-w-[200px]"
+                          title={getVal(u, 'nombre_razon_social')}
+                        >
+                          {getVal(u, 'nombre_razon_social')}
+                        </div>
+
+                        <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                          CI/NIT: {getVal(u, 'documento_identidad')}
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest ${badgeClass}`}
+                        >
+                          {getNombreRol(idRol)}
+                        </span>
+                      </td>
+
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex justify-center gap-4">
+                          <button
+                            onClick={() => openEditModal(u)}
+                            className="text-blue-600 hover:text-blue-800 font-black text-[10px] uppercase tracking-widest flex flex-col items-center gap-1 opacity-100 sm:opacity-50 group-hover:opacity-100 transition-opacity"
+                          >
+                            Editar
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              handleEliminar(getVal(u, 'user_name'))
+                            }
+                            className="text-red-500 hover:text-red-700 font-black text-[10px] uppercase tracking-widest flex flex-col items-center gap-1 opacity-100 sm:opacity-50 group-hover:opacity-100 transition-opacity"
+                          >
+                            Borrar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+            </table>
+          </div>
+        </div>
+
+      {/* MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-0 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-[#1E293B] rounded-2xl sm:rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden border border-gray-200 dark:border-slate-700 animate-slide-up sm:animate-none max-h-[90vh] overflow-y-auto custom-scrollbar">
-            
-            <div className="px-5 py-4 sm:py-3.5 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center bg-gray-50/50 dark:bg-slate-800/50 sticky top-0 z-10">
-              <h3 className="text-base font-bold text-gray-800 dark:text-white">
-                {isEditing ? 'Editar Registro' : 'Nuevo Usuario'}
-              </h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1">
-                <svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 sm:w-5 sm:h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-slate-900/70 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl flex flex-col max-h-[95vh] border border-slate-300 animate-in zoom-in-95 duration-200">
+
+            {/* Cabecera Fija */}
+            <div className="bg-[#1A5729] px-4 sm:px-8 py-4 sm:py-5 flex justify-between items-center text-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2 rounded-md hidden sm:block">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black uppercase tracking-widest">
+                    {isEditing ? 'MODIFICAR USUARIO' : 'REGISTRAR NUEVO USUARIO'}
+                  </h3>
+                  <p className="text-[9px] sm:text-[10px] text-emerald-100 font-bold uppercase mt-0.5 tracking-wider">
+                    Complete los datos del perfil y asigne permisos
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setShowModal(false)} className="text-emerald-100 hover:text-white hover:bg-white/10 p-2 rounded-md transition-colors shrink-0">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-5 sm:p-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-4">
+            {/* Contenido Deslizable */}
+            <form onSubmit={handleSubmit} className="p-4 sm:p-8 bg-slate-50 overflow-y-auto custom-scrollbar">
+
+              {/* Sección 1: Asignación MultiTenant */}
+              <div className="mb-4 sm:mb-6 p-4 sm:p-6 bg-blue-50 border border-blue-200 rounded-md shadow-sm">
+                <label className="block text-[10px] font-black text-blue-800 uppercase tracking-widest mb-1 sm:mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                  ASIGNACIÓN DE EMPRESA (TENANT) *
+                </label>
+                <select 
+                  required name="id_empresa" value={formData.id_empresa} onChange={handleChange}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-blue-300 rounded text-xs font-black uppercase outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 bg-white cursor-pointer text-blue-900"
+                >
+                  <option value="" disabled>-- SELECCIONE LA EMPRESA --</option>
+                  {empresas.map(emp => (
+                    <option key={emp.id_empresa} value={emp.id_empresa}>{emp.nombre_empresa}</option>
+                  ))}
+                </select>
+                <p className="text-[9px] font-bold text-blue-600/70 uppercase mt-2">Atención: El usuario solo tendrá acceso a los datos de la empresa seleccionada.</p>
+              </div>
+
+              {/* Sección 2: Datos Personales */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 bg-white p-4 sm:p-6 rounded-md border border-slate-200 shadow-sm">
                 
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">ID Sistema</label>
-                  <input type="text" disabled value={isEditing ? formData.id_usuario : 'AUTO-GENERADO'}
-                    className="w-full px-3 py-2.5 sm:py-2 bg-gray-100 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-md text-base sm:text-sm text-gray-400 font-mono cursor-not-allowed outline-none" />
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 sm:mb-2">Nombre Completo / Razón Social *</label>
+                  <input
+                    type="text" required name="name" value={formData.name} onChange={handleChange} placeholder="Ej: Juan Perez"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-200 rounded text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729]"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Usuario</label>
-                  <input type="text" name="user" required disabled={isEditing} value={formData.user} onChange={handleChange} placeholder="Ej: migue123"
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-cyan-500 outline-none disabled:bg-gray-50 disabled:text-gray-400 dark:disabled:bg-slate-800" />
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 sm:mb-2">Documento (CI / NIT) *</label>
+                  <input
+                    type="text" required name="doc" value={formData.doc} onChange={handleChange} placeholder="Ej: 8123456"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-200 rounded text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729]"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">CI / NIT</label>
-                  <input type="text" name="doc" required={!isEditing} value={formData.doc} onChange={handleChange}
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-cyan-500 outline-none" />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Teléfono</label>
-                  <input type="text" name="number" required={!isEditing} value={formData.number} onChange={handleChange}
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-cyan-500 outline-none" />
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 sm:mb-2">Teléfono de Contacto *</label>
+                  <input
+                    type="text" required name="number" value={formData.number} onChange={handleChange} placeholder="Ej: 71234567"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-200 rounded text-xs font-bold uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729]"
+                  />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Nombre / Razón Social</label>
-                  <input type="text" name="name" required={!isEditing} value={formData.name} onChange={handleChange}
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-cyan-500 outline-none" />
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 sm:mb-2">Correo Electrónico *</label>
+                  <input
+                    type="email" required name="mail" value={formData.mail} onChange={handleChange} placeholder="correo@empresa.com"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-200 rounded text-xs font-bold lowercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729]"
+                  />
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Correo Electrónico</label>
-                  <input type="email" name="mail" required={!isEditing} value={formData.mail} onChange={handleChange}
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-cyan-500 outline-none" />
-                </div>
+              </div>
 
+              {/* Sección 3: Credenciales y Rol */}
+              <div className="mt-4 sm:mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 bg-white p-4 sm:p-6 rounded-md border border-slate-200 shadow-sm">
+                
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Rol del Sistema</label>
-                  <select name="id_role" value={formData.id_role} onChange={handleChange}
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-cyan-500 outline-none"
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 sm:mb-2">Rol en el Sistema *</label>
+                  <select
+                    required name="id_role" value={formData.id_role} onChange={handleChange}
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-200 rounded text-xs font-black uppercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-slate-50 cursor-pointer"
                   >
-                    <option value={1}>ADMINISTRADOR</option>
-                    <option value={2}>SUPERVISOR</option>
-                    <option value={3}>EMPLEADO</option>
-                    <option value={4}>CLIENTE/TERCERO</option>
+                    <option value={1}>1 - ADMINISTRADOR (TODO)</option>
+                    <option value={2}>2 - SUPERVISOR (REPORTES)</option>
+                    <option value={3}>3 - EMPLEADO OPERATIVO</option>
+                    <option value={4}>4 - CLIENTE EXTERNO</option>
                   </select>
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
-                    Contraseña {isEditing && <span className="font-normal text-gray-400 lowercase">(Opcional)</span>}
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 sm:mb-2">
+                    Nombre de Usuario (Login) {isEditing ? <span className="text-red-500 ml-1">BLOQUEADO</span> : '*'}
                   </label>
-                  <input type="password" name="password" required={!isEditing} value={formData.password} onChange={handleChange}
-                    className="w-full px-3 py-2.5 sm:py-2 bg-white dark:bg-[#0F172A] border border-gray-300 dark:border-slate-600 rounded-md text-base sm:text-sm text-gray-800 dark:text-slate-200 focus:ring-2 sm:focus:ring-1 focus:ring-cyan-500 outline-none" />
+                  <input
+                    type="text" required disabled={isEditing} name="user" value={formData.user} onChange={handleChange} placeholder="Ej: jperez"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-200 rounded text-xs font-bold lowercase outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] disabled:bg-slate-100 disabled:text-slate-400"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 sm:mb-2 flex items-center gap-1.5">
+                    Contraseña de Acceso {isEditing && <span className="text-amber-500 font-bold">(Dejar en blanco para no cambiar)</span>}
+                  </label>
+                  <input
+                    type="password" required={!isEditing} name="password" value={formData.password} onChange={handleChange} placeholder="••••••••"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-200 rounded text-sm font-bold font-mono outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729]"
+                  />
                 </div>
               </div>
 
-              {/* Botones Invertidos en Móvil, Alineados en PC */}
-              <div className="mt-8 sm:mt-6 flex flex-col-reverse sm:flex-row items-center justify-end gap-3 sm:gap-2 pt-4 border-t border-gray-100 dark:border-slate-700">
-                <button type="button" onClick={() => setShowModal(false)} className="w-full sm:w-auto px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold sm:font-semibold text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg sm:rounded-md transition-colors">
-                  Cancelar
+              {/* Botonera */}
+              <div className="mt-6 sm:mt-8 flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 sm:pt-6 border-t border-slate-200 shrink-0">
+                <button type="button" onClick={() => setShowModal(false)}
+                  className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-2.5 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-slate-200 rounded-md transition-colors text-center">
+                  CANCELAR OPERACIÓN
                 </button>
-                <button type="submit" className="w-full sm:w-auto px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold sm:font-semibold text-white bg-[#1A5729] hover:bg-[#144320] dark:bg-cyan-600 dark:hover:bg-cyan-700 rounded-lg sm:rounded-md shadow-sm transition-colors">
-                  {isEditing ? 'Guardar Cambios' : 'Registrar Usuario'}
+                <button type="submit"
+                  className="w-full sm:w-auto px-6 sm:px-10 py-3 sm:py-2.5 bg-[#1A5729] text-white text-[10px] font-black uppercase tracking-widest rounded-md shadow-lg hover:bg-[#144320] transition-all flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  {isEditing ? 'GUARDAR CAMBIOS' : 'REGISTRAR'}
                 </button>
               </div>
             </form>
-
           </div>
         </div>
       )}
+
     </div>
   );
 }

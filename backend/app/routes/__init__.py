@@ -11,3 +11,4 @@ from .maquinaria_routes import maquinaria_routes
 from .prediccion_routes import prediccion_routes
 from .cultivo_routes import cultivo_routes  
 from .crm_routes import crm_routes
+from .empresas_routes import empresas_routes

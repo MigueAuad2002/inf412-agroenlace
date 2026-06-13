@@ -1,7 +1,9 @@
+# app/routes/ordenes_routes.py
 from flask import Blueprint, request, jsonify
-from ..services import decode_access_token, ordenes_service
+from app.services import ordenes_services
+from app.utils.security import decode_access_token
 
-ordenes_routes = Blueprint('ordenes_routes', __name__)
+router = Blueprint('ordenes_routes', __name__)
 
 def token_required(func):
     """Valida token y extrae el payload. Bloquea solo al Rol 4 (Cliente)."""
@@ -15,7 +17,6 @@ def token_required(func):
             return jsonify({'success': False, 'message': 'Token inválido'}), 401
             
         payload = val.get('payload', {})
-        # CORRECCIÓN: Buscamos 'id_rol' primero
         rol = int(payload.get('id_rol', payload.get('role', 0)))
         
         if rol == 4:
@@ -29,7 +30,6 @@ def token_required(func):
 def boss_only(func):
     """Decorador adicional: Solo permite el paso a Admin (1) y Supervisor (2)."""
     def wrapper(*args, **kwargs):
-        # CORRECCIÓN: Buscamos 'id_rol' primero
         rol = int(request.user_payload.get('id_rol', request.user_payload.get('role', 0)))
         if rol not in [1, 2]:
             return jsonify({
@@ -40,49 +40,46 @@ def boss_only(func):
     wrapper.__name__ = func.__name__
     return wrapper
 
-@ordenes_routes.route('/api/get-ordenes', methods=['GET'])
+@router.route('/api/get-ordenes', methods=['GET'])
 @token_required
 def get_ordenes():
-    # CORRECCIÓN: Extraemos id_usuario (o user_id por si acaso)
     user_id = request.user_payload.get('id_usuario', request.user_payload.get('user_id'))
     role_id = int(request.user_payload.get('id_rol', request.user_payload.get('role', 0)))
-    res, status = ordenes_service.get_ordenes_logic(user_id, role_id)
+    res, status = ordenes_services.get_ordenes_logic(user_id, role_id)
     return jsonify(res), status
 
-@ordenes_routes.route('/api/add-orden', methods=['POST'])
+@router.route('/api/add-orden', methods=['POST'])
 @token_required
 @boss_only
 def add_orden():
     sup_id = request.user_payload.get('id_usuario', request.user_payload.get('user_id'))
-    res, status = ordenes_service.create_work_order(request.get_json(), sup_id)
+    res, status = ordenes_services.create_work_order(request.get_json(), sup_id)
     return jsonify(res), status
 
-@ordenes_routes.route('/api/assign-responsible', methods=['POST'])
+@router.route('/api/assign-responsible', methods=['POST'])
 @token_required
 @boss_only
 def assign_responsible():
     sup_id = request.user_payload.get('id_usuario', request.user_payload.get('user_id'))
-    res, status = ordenes_service.assign_responsible_to_order(request.get_json(), sup_id)
+    res, status = ordenes_services.assign_responsible_to_order(request.get_json(), sup_id)
     return jsonify(res), status
 
-@ordenes_routes.route('/api/delete-orden', methods=['POST'])
+@router.route('/api/delete-orden', methods=['POST'])
 @token_required
 @boss_only
 def delete_orden():
     sup_id = request.user_payload.get('id_usuario', request.user_payload.get('user_id'))
-    res, status = ordenes_service.remove_work_order(request.get_json(), sup_id)
+    res, status = ordenes_services.remove_work_order(request.get_json(), sup_id)
     return jsonify(res), status
 
-@ordenes_routes.route('/api/update-mi-orden', methods=['POST'])
+@router.route('/api/update-mi-orden', methods=['POST'])
 @token_required
 def update_mi_orden():
-    # Extraemos el ID del empleado directamente desde el token (seguridad)
     employee_id = request.user_payload.get('id_usuario', request.user_payload.get('user_id'))
-    
     data = request.get_json()
     
     if not data:
         return jsonify({'success': False, 'message': 'Cuerpo de petición vacío.'}), 400
         
-    res, status = ordenes_service.update_work_order_by_employee(data, employee_id)
+    res, status = ordenes_services.update_work_order_by_employee(data, employee_id)
     return jsonify(res), status

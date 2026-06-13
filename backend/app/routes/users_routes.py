@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
-from ..services import decode_access_token, users_service
+from app.services import users_services
+from app.utils.security import decode_access_token
 
-users_routes = Blueprint('users_routes', __name__)
+router = Blueprint('users_routes', __name__)
 
 def admin_required(func):
     """Decorator para validar token y rol de admin"""
@@ -45,36 +46,35 @@ def boss_required(func):
     wrapper.__name__ = func.__name__
     return wrapper
 
-@users_routes.route('/api/get-users', methods=['GET'])
+@router.route('/api/get-users', methods=['GET'])
 @admin_required
 def get_users():
     id_empresa = request.args.get('id_empresa')
-    res, status = users_service.get_users_list(id_empresa)
+    res, status = users_services.get_users_list(id_empresa)
     return jsonify(res), status
 
-@users_routes.route('/api/add-users', methods=['POST'])
+@router.route('/api/add-users', methods=['POST'])
 @admin_required
 def add_users():
-    res, status = users_service.create_user(request.get_json())
+    res, status = users_services.create_user(request.get_json())
     return jsonify(res), status
 
-@users_routes.route('/api/delete-users', methods=['POST'])
+@router.route('/api/delete-users', methods=['POST'])
 @admin_required
 def delete_users():
     username = request.get_json().get('user')
-    res, status = users_service.remove_user(username)
+    res, status = users_services.remove_user(username)
     return jsonify(res), status
 
-@users_routes.route('/api/update-users', methods=['POST'])
+@router.route('/api/update-users', methods=['POST'])
 @admin_required
 def update_users():
-    res, status = users_service.modify_user(request.get_json())
+    res, status = users_services.modify_user(request.get_json())
     return jsonify(res), status
 
-@users_routes.route('/api/get-empleados', methods=['GET'])
+@router.route('/api/get-empleados', methods=['GET'])
 @boss_required
 def get_empleados():
-    # Extraemos id_empresa de la URL si existe
     id_empresa = request.args.get('id_empresa')
-    res, status = users_service.get_employees_list(id_empresa)
+    res, status = users_services.get_employees_list(id_empresa)
     return jsonify(res), status

@@ -1,3 +1,9 @@
+#PERSONALIZADO
+backend_v2/
+backend_v2/*
+api/
+api/*
+
 #PYTHON CACHE
 __pycache__/
 *.py[cod]

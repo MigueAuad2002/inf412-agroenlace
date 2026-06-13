@@ -1,7 +1,7 @@
 from .config import Config
 from flask import Flask
 from flask_cors import CORS 
-from .routes import main_routes,auth_routes,users_routes,ordenes_routes,pedidos_routes,terrenos_routes,campanias_routes, audit_routes,roles_routes,profile_routes,maquinaria_routes, cultivo_routes,prediccion_routes,empresas_routes,mant_maquinaria_routes, crm_routes,backup_routes
+from app.routes import main_routes,audit_routes,crm_routes,pedidos_routes,profile_routes,mant_maquinaria_routes,prediccion_routes,ordenes_routes,cultivos_routes,roles_routes,auth_routes,users_routes,terrenos_routes,empresas_routes,campanias_routes,maquinarias_routes
 
 
 def create_app():
@@ -9,7 +9,26 @@ def create_app():
 
     app.config.from_object(Config)
 
-    app.register_blueprint(main_routes) 
+
+    app.register_blueprint(main_routes.router)
+    app.register_blueprint(auth_routes.router)
+    app.register_blueprint(users_routes.router)
+    app.register_blueprint(terrenos_routes.router)
+    app.register_blueprint(empresas_routes.router)
+    app.register_blueprint(campanias_routes.router)
+    app.register_blueprint(maquinarias_routes.router)
+    app.register_blueprint(roles_routes.router)
+    app.register_blueprint(cultivos_routes.router)
+    app.register_blueprint(prediccion_routes.router)
+    app.register_blueprint(ordenes_routes.router)
+    app.register_blueprint(mant_maquinaria_routes.router)
+    app.register_blueprint(profile_routes.router)
+    app.register_blueprint(pedidos_routes.router)
+    app.register_blueprint(crm_routes.router)
+    app.register_blueprint(audit_routes.router)
+
+
+    """
     app.register_blueprint(auth_routes)
     app.register_blueprint(users_routes)
     app.register_blueprint(audit_routes)
@@ -25,7 +44,7 @@ def create_app():
     app.register_blueprint(mant_maquinaria_routes)
     app.register_blueprint(backup_routes)
     app.register_blueprint(pedidos_routes)
-    app.register_blueprint(crm_routes)
+    app.register_blueprint(crm_routes)"""
     
     CORS(
         app,

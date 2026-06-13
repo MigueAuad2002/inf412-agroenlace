@@ -1,5 +1,4 @@
 from dotenv import load_dotenv
-from .classes import PostgreSQL
 import os
 
 class Config:
@@ -17,7 +16,7 @@ class Config:
     DB_PASSWORD=os.getenv('DB_PASSWORD','')
 
     #ESQUEMA CONTENEDOR DE LA APLICACION
-    SCHEMA='agroenlace'
+    SCHEMA='AGROENLACE'
     
     #TABLAS A DISPOSICION EN LA BASE DE DATOS
     T_USER='USUARIO'
@@ -28,19 +27,11 @@ class Config:
     T_CAMPANA='CAMPANA_CULTIVO'
     T_MAQUINA='MAQUINARIA'
 
-    # ==========================
-    # TABLAS CRM
-    # ==========================
-    T_TRANSACCION_COMERCIAL = 'transaccion_comercial'
+    
+    T_TRANSACCION_COMERCIAL = 'TRANSACCION_COMERCIAL'
 
-    # Según tu servicio actual, cuando creas usuario usas id_role = 4 por defecto.
-    # Tomamos ese rol como CLIENTE.
-    CLIENT_ROLE_ID = 4    
-
-db=PostgreSQL(
-    Config.DB_HOST,
-    Config.DB_PORT,
-    Config.DB_NAME,
-    Config.DB_USER,
-    Config.DB_PASSWORD
-)
+    #ROLES
+    CLIENT_ROLE_ID=4
+    ADMIN_ROLE_ID=1
+    EMPLOYEE_ROLE_ID=3
+    SUP_ROLE_ID=2

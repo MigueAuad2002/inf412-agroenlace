@@ -1,27 +1,26 @@
 from flask import Blueprint,request,jsonify
+from app.services import auth_services
 
-from ..services import auth_service
+router=Blueprint('auth_routes',__name__)
 
-auth_routes=Blueprint('auth_routes',__name__)
 
-#REGISTRO DE USUARIO
-@auth_routes.route('/api/register',methods=['POST'])
+@router.post('/api/register')
 def register():
     data=request.get_json()
 
     if not data:
         return jsonify({
             'success':False,
-            'message':'Peticion Vacia.'
-        })
-
-    response_data,status_code=auth_service.register_new_user(data)
+            'message':'Debe enviar los datos para registrarse.'
+        }),401
+    
+    response_data,status_code=auth_services.register_new_user(data)
 
     return jsonify(response_data),status_code
 
 
 #INICIO DE SESION
-@auth_routes.route('/api/login',methods=['POST'])
+@router.post('/api/login')
 def login():
     data=request.get_json()
 
@@ -31,5 +30,5 @@ def login():
             'message':'Petición Vacia.'
         })
     
-    response_data,status_code=auth_service.validate_user(data)
+    response_data,status_code=auth_services.validate_user(data)
     return jsonify(response_data),status_code

@@ -1,7 +1,9 @@
+# app/routes/empresas_routes.py
 from flask import Blueprint, request, jsonify
-from ..services import decode_access_token, empresas_service
+from app.services import empresas_services
+from app.utils.security import decode_access_token
 
-empresas_routes = Blueprint('empresas_routes', __name__)
+router = Blueprint('empresas_routes', __name__)
 
 def admin_required(func):
     """Decorator para validar token y rol de admin (Super Admin)"""
@@ -32,27 +34,27 @@ def admin_required(func):
     wrapper.__name__ = func.__name__
     return wrapper
 
-@empresas_routes.route('/api/get-empresas', methods=['GET'])
+@router.route('/api/get-empresas', methods=['GET'])
 @admin_required
 def get_empresas():
-    res, status = empresas_service.get_empresas_list()
+    res, status = empresas_services.get_empresas_list()
     return jsonify(res), status
 
-@empresas_routes.route('/api/add-empresa', methods=['POST'])
+@router.route('/api/add-empresa', methods=['POST'])
 @admin_required
 def add_empresa():
-    res, status = empresas_service.create_empresa(request.get_json())
+    res, status = empresas_services.create_empresa(request.get_json())
     return jsonify(res), status
 
-@empresas_routes.route('/api/update-empresa', methods=['POST'])
+@router.route('/api/update-empresa', methods=['POST'])
 @admin_required
 def update_empresa():
-    res, status = empresas_service.modify_empresa(request.get_json())
+    res, status = empresas_services.modify_empresa(request.get_json())
     return jsonify(res), status
 
-@empresas_routes.route('/api/delete-empresa', methods=['POST'])
+@router.route('/api/delete-empresa', methods=['POST'])
 @admin_required
 def delete_empresa():
     id_empresa = request.get_json().get('id_empresa')
-    res, status = empresas_service.remove_empresa(id_empresa)
+    res, status = empresas_services.remove_empresa(id_empresa)
     return jsonify(res), status

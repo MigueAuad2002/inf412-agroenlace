@@ -1,13 +1,10 @@
-from flask import Blueprint,jsonify,request,redirect
-from ..config import db
+from flask import Blueprint,request
 
-main_routes=Blueprint('main_routes',__name__)
+router=Blueprint('main_routes',__name__)
 
-
-@main_routes.route('/')
+@router.route('/')
 def index():
-    
-    return jsonify({
+    return {
         'success':True,
-        'message':'API INICIADA EXITOSAMENTE'
-    })
+        'message':'API Iniciada Exitosamente.'
+    }

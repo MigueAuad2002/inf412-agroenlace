@@ -1,13 +1,14 @@
+from ..config import Config
 import psycopg2
 
 class PostgreSQL():
 
-    def __init__(self,db_host,db_port,db_name,db_user,db_password):
-        self.db_host=db_host
-        self.db_port=db_port
-        self.db_name=db_name
-        self.db_user=db_user
-        self.db_password=db_password
+    def __init__(self):
+        self.db_host=Config.DB_HOST
+        self.db_port=Config.DB_PORT
+        self.db_name=Config.DB_NAME
+        self.db_user=Config.DB_USER
+        self.db_password=Config.DB_PASSWORD
         self.conn=None
         self.cur=None
 

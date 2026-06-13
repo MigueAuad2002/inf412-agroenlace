@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import os
 
+load_dotenv()
 class Config:
      #CLAVE PARA LA CONFIGURACION DE FLASK
     SECRET_KEY=os.getenv('SECRET_KEY','')

@@ -6,3 +6,6 @@ pandas
 gunicorn
 PyJWT
 groq
+Flask-SocketIO
+gevent
+gevent-websocket

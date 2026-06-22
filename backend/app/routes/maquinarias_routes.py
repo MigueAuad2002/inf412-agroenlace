@@ -1,4 +1,4 @@
-# app/routes/maquinaria_routes.py
+# app/routes/maquinarias_routes.py
 from flask import Blueprint, request, jsonify
 from app.services import maquinarias_services
 from app.utils.security import decode_access_token
@@ -51,4 +51,20 @@ def update_maquinaria(nro_maquina):
 def delete_maquinaria(nro_maquina):
     user_id = request.user_payload.get('user_id')
     response, status = maquinarias_services.remove_maquinaria(nro_maquina, user_id)
+    return jsonify(response), status
+
+# ========================================================
+# NUEVO CÓDIGO: RUTA PARA IMPORTACIÓN MASIVA DE MAQUINARIA
+# ========================================================
+@router.route('/api/maquinaria/import', methods=['POST'])
+@auth_required
+def import_maquinaria_bulk():
+    """
+    Endpoint que recibe una lista JSON de maquinarias (parseada en el frontend 
+    a partir de un archivo Excel/CSV) y las inserta masivamente.
+    """
+    data = request.get_json()
+    user_id = request.user_payload.get('user_id')
+    
+    response, status = maquinarias_services.import_maquinaria_bulk(data, user_id)
     return jsonify(response), status

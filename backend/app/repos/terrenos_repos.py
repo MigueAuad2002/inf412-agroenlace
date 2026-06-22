@@ -1,4 +1,4 @@
-# app/repos/terrenos_repo.py
+# app/repos/terrenos_repos.py
 from app.config import Config
 
 def get_all_terrenos_db(db):
@@ -37,3 +37,8 @@ def update_terreno_dynamic_db(db, nro_lote, fields, params):
 def delete_terreno_db(db, nro_lote):
     query = f"DELETE FROM {Config.SCHEMA}.{Config.T_TERRENO} WHERE nro_lote = %s"
     return db.execute_query(query, (nro_lote,))
+
+# ========================================================
+# NOTA: Para la importación masiva de terrenos
+# reutilizaremos insert_terreno_db desde el servicio.
+# ========================================================

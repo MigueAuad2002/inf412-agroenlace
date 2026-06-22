@@ -162,9 +162,90 @@ def remove_cultivo(id_producto, user_id):
     except Exception as e:
         if db.conn:
             db.conn.rollback()
-        # Controlamos si se intenta eliminar un producto en uso (foráneas)
         if "violates foreign key constraint" in str(e).lower() or "foreign key" in str(e).lower():
             return {"success": False, "message": "No se puede eliminar el producto porque está siendo utilizado en campañas u órdenes."}, 409
         return {"success": False, "message": str(e)}, 500
+    finally:
+        db.close_connection()
+
+
+# ========================================================
+# NUEVO CÓDIGO: SERVICIO PARA IMPORTACIÓN MASIVA
+# ========================================================
+def import_cultivos(data_list, user_id):
+    """
+    Recibe una lista de diccionarios (datos parseados de CSV/Excel en el frontend)
+    e inserta los registros válidos masivamente.
+    """
+    if not data_list or not isinstance(data_list, list):
+        return {"success": False, "message": "El formato enviado debe ser una lista de registros."}, 400
+
+    db = PostgreSQL()
+    importados = 0
+    errores = []
+
+    try:
+        db.create_connection()
+
+        for idx, item in enumerate(data_list):
+            try:
+                # Validar campos obligatorios de la fila
+                nombre_producto = item.get("nombre_producto", "")
+                categoria = item.get("categoria", "")
+
+                if not nombre_producto or not categoria:
+                    errores.append(f"Fila {idx+1}: Falta 'nombre_producto' o 'categoria'.")
+                    continue
+
+                nombre_producto = str(nombre_producto).strip().upper()
+                categoria = str(categoria).strip().upper()
+
+                unidad_medida = item.get("unidad_medida", "")
+                unidad_medida = str(unidad_medida).strip().upper() if unidad_medida else None
+
+                # Conversión de numéricos
+                precio_unitario, err1 = _to_decimal(item.get("precio_unitario"), "precio_unitario", default=0)
+                stock_actual, err2 = _to_decimal(item.get("stock_actual"), "stock_actual", default=0)
+                stock_minimo, err3 = _to_decimal(item.get("stock_minimo"), "stock_minimo", default=0)
+
+                if err1 or err2 or err3:
+                    errores.append(f"Fila {idx+1} ({nombre_producto}): Valores numéricos inválidos.")
+                    continue
+
+                # Insertar en base de datos
+                ra = cultivos_repos.insert_cultivo(
+                    db, nombre_producto, categoria, unidad_medida, 
+                    precio_unitario, stock_actual, stock_minimo
+                )
+
+                if ra and ra > 0:
+                    importados += 1
+                else:
+                    errores.append(f"Fila {idx+1} ({nombre_producto}): Fallo al insertar.")
+
+            except Exception as e:
+                errores.append(f"Fila {idx+1}: Error inesperado - {str(e)}")
+
+        # Si al menos un registro se importó, hacemos commit y bitácora
+        if importados > 0:
+            db.insert_log(f"IMPORTACIÓN MASIVA: Se registraron {importados} productos en BODEGA", user_id)
+            db.conn.commit()
+
+        # Construir mensaje de respuesta
+        mensaje = f"Importación finalizada. {importados} productos agregados exitosamente."
+        if errores:
+            mensaje += f" Se omitieron {len(errores)} filas con errores."
+
+        return {
+            "success": True if importados > 0 else False,
+            "message": mensaje,
+            "importados": importados,
+            "errores": errores
+        }, 201 if importados > 0 else 400
+
+    except Exception as e:
+        if db.conn:
+            db.conn.rollback()
+        return {"success": False, "message": f"Error crítico en importación: {str(e)}"}, 500
     finally:
         db.close_connection()

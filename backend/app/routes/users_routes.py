@@ -1,3 +1,4 @@
+# app/routes/users_routes.py
 from flask import Blueprint, request, jsonify
 from app.services import users_services
 from app.utils.security import decode_access_token
@@ -77,4 +78,18 @@ def update_users():
 def get_empleados():
     id_empresa = request.args.get('id_empresa')
     res, status = users_services.get_employees_list(id_empresa)
+    return jsonify(res), status
+
+# ========================================================
+# NUEVO CÓDIGO: RUTA PARA IMPORTACIÓN MASIVA DE USUARIOS
+# ========================================================
+@router.route('/api/import-users', methods=['POST'])
+@admin_required
+def import_users_bulk():
+    """
+    Endpoint que recibe una lista JSON de usuarios (parseada en el frontend 
+    a partir de un archivo Excel/CSV) y los inserta de forma masiva.
+    """
+    data = request.get_json()
+    res, status = users_services.import_users(data)
     return jsonify(res), status

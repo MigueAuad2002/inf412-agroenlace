@@ -117,3 +117,83 @@ def delete_existing_terreno(nro_lote):
         return {'success': False, 'message': str(e)}, 500
     finally:
         db.close_connection()
+
+
+# ========================================================
+# NUEVO CÓDIGO: SERVICIO PARA IMPORTACIÓN MASIVA
+# ========================================================
+def import_terrenos_bulk(data_list, id_admin):
+    """
+    Procesa un listado de terrenos provenientes de una importación (Excel/CSV)
+    y los inserta asegurando que no haya duplicados para el usuario actual.
+    """
+    if not data_list or not isinstance(data_list, list):
+        return {"success": False, "message": "El formato enviado debe ser una lista de registros."}, 400
+
+    db = PostgreSQL()
+    importados = 0
+    errores = []
+
+    try:
+        db.create_connection()
+
+        for idx, item in enumerate(data_list):
+            try:
+                nombre = item.get('nombre_sector')
+                
+                if not nombre:
+                    errores.append(f"Fila {idx+1}: Falta 'nombre_sector'.")
+                    continue
+                
+                nombre = str(nombre).strip().upper()
+                tamano = item.get('tamano_hectareas')
+                lat = item.get('latitud')
+                lon = item.get('longitud')
+                
+                # Si en el CSV no viene el id_usuario, por defecto se asigna al Admin que lo subió
+                id_usuario = item.get('id_usuario', id_admin)
+
+                # Validamos que los datos numéricos existan
+                if tamano is None or lat is None or lon is None:
+                    errores.append(f"Fila {idx+1} ({nombre}): Faltan datos numéricos (tamaño o coordenadas).")
+                    continue
+
+                # Evitamos duplicados
+                if terrenos_repos.check_duplicate_terreno(db, nombre, id_usuario):
+                    errores.append(f"Fila {idx+1} ({nombre}): El terreno ya existe para este usuario.")
+                    continue
+
+                # Inserción
+                ra = terrenos_repos.insert_terreno_db(db, nombre, tamano, lat, lon, id_usuario)
+
+                if ra and ra > 0:
+                    importados += 1
+                else:
+                    errores.append(f"Fila {idx+1} ({nombre}): Fallo al insertar en la base de datos.")
+
+            except Exception as e:
+                errores.append(f"Fila {idx+1}: Error inesperado - {str(e)}")
+
+        # Si insertó al menos 1, hace COMMIT en la base de datos
+        if importados > 0:
+            db.insert_log(f"IMPORTACIÓN MASIVA: Se registraron {importados} lotes/terrenos", id_admin)
+            db.conn.commit()
+
+        # Respuesta estructurada para el Frontend
+        mensaje = f"Importación finalizada. {importados} terrenos agregados exitosamente."
+        if errores:
+            mensaje += f" Se omitieron {len(errores)} filas con errores."
+
+        return {
+            "success": True if importados > 0 else False,
+            "message": mensaje,
+            "importados": importados,
+            "errores": errores
+        }, 201 if importados > 0 else 400
+
+    except Exception as e:
+        if db.conn:
+            db.conn.rollback()
+        return {"success": False, "message": f"Error crítico en importación: {str(e)}"}, 500
+    finally:
+        db.close_connection()

@@ -108,7 +108,8 @@ class _ProductosScreenState extends State<ProductosScreen> {
   }
 
   Future<void> confirmarPedido() async {
-    if (carrito.isEmpty) return;
+    // Evita doble clic y pedidos duplicados
+    if (enviando || carrito.isEmpty) return;
 
     setState(() {
       enviando = true;
@@ -121,12 +122,9 @@ class _ProductosScreenState extends State<ProductosScreen> {
 
     if (!mounted) return;
 
-    setState(() {
-      enviando = false;
-    });
-
     if (!result.success) {
       setState(() {
+        enviando = false;
         message = result.message;
         messageSuccess = false;
       });
@@ -135,57 +133,22 @@ class _ProductosScreenState extends State<ProductosScreen> {
 
     setState(() {
       carrito.clear();
+      enviando = false;
       message = result.message;
       messageSuccess = true;
     });
 
-    if (OfflinePedidoService.instance.isOnline) {
-      await cargarCatalogo();
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.message),
+        backgroundColor: AppTheme.primaryGreen,
+      ),
+    );
 
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (_) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          title: const Text(
-            'PEDIDO GENERADO',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              color: AppTheme.slateText,
-              letterSpacing: 1,
-            ),
-          ),
-          content: Text(
-            'Transacción: ORD-${result.nroTransaccion.toString().padLeft(5, '0')}\nTotal: Bs. ${result.montoTotal.toStringAsFixed(2)}',
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppTheme.mutedText,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text(
-                'ACEPTAR',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  color: AppTheme.primaryGreen,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/home',
+      (route) => false,
     );
   }
 

@@ -18,13 +18,69 @@ class _HomeScreenState extends State<HomeScreen> {
   int role = 0;
   int? empresaId;
   final socketService = NotificationSocketService.instance;
+  int _lastShownNotificationId = 0;
 
   @override
   void initState() {
     super.initState();
     loadUser();
+
+    socketService.addListener(_handleSocketNotification);
     socketService.connect();
+
     OfflinePedidoService.instance.init();
+  }
+
+  @override
+  void dispose() {
+    socketService.removeListener(_handleSocketNotification);
+    super.dispose();
+  }
+
+  void _handleSocketNotification() {
+    final notification = socketService.lastNotification;
+
+    if (notification == null) return;
+
+    if (notification.localId == _lastShownNotificationId) return;
+
+    _lastShownNotificationId = notification.localId;
+
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppTheme.primaryGreen,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+          content: Row(
+            children: [
+              const Icon(
+                Icons.notifications_active,
+                color: Colors.white,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${notification.asunto}: ${notification.mensaje}',
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 
   Future<void> loadUser() async {
@@ -41,6 +97,156 @@ class _HomeScreenState extends State<HomeScreen> {
       role = userRole ?? 0;
       empresaId = currentEmpresaId;
     });
+  }
+
+  Widget _buildCrmNotificationCard() {
+    return AnimatedBuilder(
+      animation: socketService,
+      builder: (context, _) {
+        final notification = socketService.lastNotification;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: socketService.unreadCount > 0
+                  ? Colors.green.shade300
+                  : AppTheme.borderColor,
+            ),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGreen.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.notifications_active_outlined,
+                      color: AppTheme.primaryGreen,
+                      size: 23,
+                    ),
+                  ),
+                  if (socketService.unreadCount > 0)
+                    Positioned(
+                      right: -5,
+                      top: -5,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          socketService.unreadCount.toString(),
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: notification == null
+                    ? const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'NOTIFICACIONES CRM',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.slateText,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          SizedBox(height: 3),
+                          Text(
+                            'Aún no recibiste notificaciones del servidor.',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.mutedText,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            notification.asunto.toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.slateText,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            notification.mensaje,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.mutedText,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${notification.canal}  •  ${notification.fecha}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.primaryGreen,
+                              letterSpacing: 0.7,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+              const SizedBox(width: 8),
+              if (socketService.unreadCount > 0)
+                IconButton(
+                  onPressed: socketService.markNotificationsAsRead,
+                  icon: const Icon(
+                    Icons.done_all,
+                    color: AppTheme.primaryGreen,
+                  ),
+                  tooltip: 'Marcar como leído',
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildOfflinePedidosCard() {
@@ -325,6 +531,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildOfflinePedidosCard(),
                     const SizedBox(height: 16),
+                    _buildCrmNotificationCard(),
+                    const SizedBox(height: 12),
                     _buildQuickStats(),
                     const SizedBox(height: 20),
                     _buildSectionTitle('MÓDULOS PRINCIPALES'),

@@ -21,12 +21,19 @@ class NotificationSocketService extends ChangeNotifier {
   IO.Socket? _socket;
 
   SocketConnectionStatus _status = SocketConnectionStatus.disconnected;
+
   String _lastMessage = '';
   String _lastError = '';
+
+  int _unreadCount = 0;
+  CrmNotification? _lastNotification;
 
   SocketConnectionStatus get status => _status;
   String get lastMessage => _lastMessage;
   String get lastError => _lastError;
+
+  int get unreadCount => _unreadCount;
+  CrmNotification? get lastNotification => _lastNotification;
 
   bool get isConnected => _status == SocketConnectionStatus.connected;
   bool get isConnecting => _status == SocketConnectionStatus.connecting;
@@ -92,8 +99,7 @@ class NotificationSocketService extends ChangeNotifier {
           'reconnectionAttempts': 5,
           'reconnectionDelay': 1500,
 
-          // El backend acepta token por auth o por query params.
-          // Mandamos ambos para evitar problemas de compatibilidad.
+          // Tu backend acepta token por auth o por query.
           'auth': {
             'token': token,
           },
@@ -129,6 +135,11 @@ class NotificationSocketService extends ChangeNotifier {
     _setStatus(SocketConnectionStatus.disconnected);
   }
 
+  void markNotificationsAsRead() {
+    _unreadCount = 0;
+    notifyListeners();
+  }
+
   void _registerSocketEvents() {
     final socket = _socket;
 
@@ -162,8 +173,17 @@ class NotificationSocketService extends ChangeNotifier {
       _setError('No se pudo reconectar al canal de notificaciones.');
     });
 
-    // Eventos futuros. Cuando el backend emita alguno de estos eventos,
-    // aquí puedes mostrar SnackBar, badge, contador, etc.
+    // Evento correcto del backend CRM.
+    socket.on('nueva_notificacion', (data) {
+      _handleCrmNotification(data);
+    });
+
+    // Fallback por si en algún lugar quedó mal escrito.
+    socket.on('nueva_notifiacion', (data) {
+      _handleCrmNotification(data);
+    });
+
+    // Otros eventos genéricos que ya tenías.
     socket.on('notificacion', (data) {
       _lastMessage = data.toString();
       notifyListeners();
@@ -178,6 +198,17 @@ class NotificationSocketService extends ChangeNotifier {
       _lastMessage = data.toString();
       notifyListeners();
     });
+  }
+
+  void _handleCrmNotification(dynamic data) {
+    final notification = CrmNotification.fromSocket(data);
+
+    _lastNotification = notification;
+    _unreadCount++;
+
+    _lastMessage = '${notification.asunto}: ${notification.mensaje}';
+
+    notifyListeners();
   }
 
   void _setStatus(SocketConnectionStatus newStatus) {
@@ -198,5 +229,41 @@ class NotificationSocketService extends ChangeNotifier {
     } catch (_) {}
 
     _socket = null;
+  }
+}
+
+class CrmNotification {
+  final int localId;
+  final String asunto;
+  final String mensaje;
+  final String canal;
+  final String fecha;
+
+  CrmNotification({
+    required this.localId,
+    required this.asunto,
+    required this.mensaje,
+    required this.canal,
+    required this.fecha,
+  });
+
+  factory CrmNotification.fromSocket(dynamic data) {
+    if (data is Map) {
+      return CrmNotification(
+        localId: DateTime.now().millisecondsSinceEpoch,
+        asunto: data['asunto']?.toString() ?? 'Notificación',
+        mensaje: data['mensaje']?.toString() ?? '',
+        canal: data['canal']?.toString() ?? 'CRM',
+        fecha: data['fecha']?.toString() ?? '',
+      );
+    }
+
+    return CrmNotification(
+      localId: DateTime.now().millisecondsSinceEpoch,
+      asunto: 'Notificación',
+      mensaje: data.toString(),
+      canal: 'CRM',
+      fecha: '',
+    );
   }
 }

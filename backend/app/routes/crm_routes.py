@@ -1,6 +1,6 @@
 # app/routes/crm_routes.py
 from functools import wraps
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify,current_app
 from app.services import crm_services
 from app.utils.security import decode_access_token
 
@@ -102,9 +102,7 @@ def crm_health():
 def enviar_notificacion_crm(payload_token=None):
     data = request.get_json()
     
-    # IMPORTANTE: Importa tu variable 'socketio' desde el archivo raíz donde la iniciaste
-    # Asumiendo que tu archivo principal se llama run.py:
-    from run import socketio 
+    socketio_instance = current_app.socketio 
     
-    res, status = crm_services.procesar_envio_notificaciones(data, socketio)
+    res, status = crm_services.procesar_envio_notificaciones(data, socketio_instance)
     return jsonify(res), status

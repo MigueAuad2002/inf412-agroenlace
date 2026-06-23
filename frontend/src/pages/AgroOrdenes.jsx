@@ -40,6 +40,13 @@ export default function AgroOrdenes() {
 
   const isFetching = useRef(false);
 
+  // --- REFERENCIAS Y ESTADOS PARA MEDIA (CÁMARA Y MICRÓFONO) ---
+  const videoRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+
   const initialForm = {
     tipo_trabajo: '',
     fecha_inicio: '',
@@ -126,34 +133,110 @@ export default function AgroOrdenes() {
     setReporteForm({
       estado: orden.estado || 'PENDIENTE',
       reporte_texto: orden.reporte_texto || '',
-      url_imagen: null, // Solo para nuevos archivos
-      url_audio: null   // Solo para nuevos archivos
+      url_imagen: null, 
+      url_audio: null  
     });
     setIsEditingReport(false);
+    stopCamera(); 
     setShowReportModal(true);
   };
 
-  // MANEJO DE ARCHIVOS EN LA WEB (Convierte a Base64)
+  // ==========================================================
+  // MANEJO DE ARCHIVOS (MODIFICADO PARA SOPORTAR VIDEO)
+  // ==========================================================
   const handleFileUpload = (e, fieldName) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validación de peso (opcional, ej. 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert("El archivo es demasiado grande. Máximo 5MB.");
+    // Aumentamos a 20MB para permitir videos cortos
+    if (file.size > 20 * 1024 * 1024) {
+      alert("El archivo es demasiado grande. Máximo 20MB.");
       e.target.value = null;
       return;
     }
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      // FileReader devuelve data:image/jpeg;base64,.... Extraemos solo la data pura
-      const base64String = reader.result.split(',')[1];
-      setReporteForm(prev => ({ ...prev, [fieldName]: base64String }));
+      // Ahora guardamos el string completo (incluye si es data:video/mp4 o data:image/jpeg)
+      const fullBase64 = reader.result;
+      setReporteForm(prev => ({ ...prev, [fieldName]: fullBase64 }));
     };
     reader.readAsDataURL(file);
   };
 
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setIsCameraActive(true);
+    } catch (err) {
+      alert('Error: No se pudo acceder a la cámara. Revisa los permisos de tu navegador.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+    }
+    setIsCameraActive(false);
+  };
+
+  const takePhoto = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
+    
+    // Guardamos con el prefijo completo
+    const fullBase64 = canvas.toDataURL('image/jpeg');
+    setReporteForm(prev => ({ ...prev, url_imagen: fullBase64 }));
+    stopCamera();
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const fullBase64 = reader.result;
+          setReporteForm(prev => ({ ...prev, url_audio: fullBase64 }));
+        };
+        reader.readAsDataURL(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      alert('Error: No se pudo acceder al micrófono. Revisa los permisos.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  // ==========================================================
+  // PETICIONES A LA API
+  // ==========================================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     const payload = {
@@ -215,6 +298,8 @@ export default function AgroOrdenes() {
         estado: reporteForm.estado,
         reporte_texto: reporteForm.reporte_texto,
       };
+      
+      // Enviamos el Base64 completo (con todo y prefijo data:video/ o data:image/)
       if (reporteForm.url_imagen) payload.url_imagen = reporteForm.url_imagen;
       if (reporteForm.url_audio) payload.url_audio = reporteForm.url_audio;
 
@@ -297,7 +382,7 @@ export default function AgroOrdenes() {
       Empleado: o.empleado_username || 'SIN ASIGNAR',
       Supervisor: o.supervisor_username || '',
       'Reporte del Empleado': o.reporte_texto || 'SIN REPORTE',
-      'Imagen (Base64)': o.url_imagen ? 'FOTO CARGADA' : 'SIN FOTO',
+      'Media Adjunta': o.url_imagen ? (o.url_imagen.includes('video') ? 'VIDEO CARGADO' : 'FOTO CARGADA') : 'SIN MEDIA',
       'Audio': o.url_audio ? 'AUDIO CARGADO' : 'SIN AUDIO'
     }));
   };
@@ -425,21 +510,17 @@ export default function AgroOrdenes() {
               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Desde</label>
               <input type="date" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-md text-xs font-bold text-slate-700 outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white shadow-sm" />
             </div>
-
             <div>
               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Hasta</label>
               <input type="date" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-md text-xs font-bold text-slate-700 outline-none focus:border-[#1A5729] focus:ring-1 focus:ring-[#1A5729] bg-white shadow-sm" />
             </div>
-
             <button type="button" onClick={limpiarFiltrosReporte} className="self-end px-4 py-2.5 border border-slate-200 text-slate-500 hover:bg-slate-100 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95">
               Limpiar
             </button>
-
             <button type="button" onClick={exportarCSV} className="self-end bg-[#C5E5F9] hover:bg-[#b4daf3] text-[#1D512E] px-4 py-2.5 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               CSV
             </button>
-
             <button type="button" onClick={exportarXLSX} className="self-end bg-[#1A5729] hover:bg-[#144320] text-white px-4 py-2.5 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-md flex items-center justify-center gap-2">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               XLSX
@@ -450,7 +531,6 @@ export default function AgroOrdenes() {
 
       {/* DASHBOARD DE KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-        {/* ... (Se mantiene igual tu código original de KPIs) ... */}
         <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
           <div className="bg-slate-100 p-2 md:p-3 rounded-md text-slate-600">
             <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
@@ -503,7 +583,7 @@ export default function AgroOrdenes() {
                 <th className="px-6 py-4">Fechas</th>
                 <th className="px-6 py-4">Estado</th>
                 <th className="px-6 py-4">Personal</th>
-                <th className="px-6 py-4">Evidencia</th>
+                <th className="px-6 py-4 text-center">Evidencia / Reporte</th>
                 {isBoss && <th className="px-6 py-4 text-center">Acciones</th>}
               </tr>
             </thead>
@@ -567,17 +647,19 @@ export default function AgroOrdenes() {
                       </div>
                     </td>
 
-                    {/* BOTÓN VER/EDITAR REPORTE */}
+                    {/* BOTÓN VER/EDITAR REPORTE (MODIFICADO PARA PERMITIR ADMINS) */}
                     <td className="px-6 py-4">
-                      <button 
-                        onClick={() => openReportModal(o)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                        <span className="text-[10px] font-black uppercase tracking-tighter">
-                          {o.id_empleado === currentUserId ? 'Editar/Ver' : 'Ver Evidencia'}
-                        </span>
-                      </button>
+                      <div className="flex justify-center">
+                        <button 
+                          onClick={() => openReportModal(o)}
+                          className="flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                          <span className="text-[10px] font-black uppercase tracking-tighter">
+                            {(o.id_empleado === currentUserId || isBoss) ? 'Editar/Ver' : 'Ver Evidencia'}
+                          </span>
+                        </button>
+                      </div>
                     </td>
 
                     {isBoss && (
@@ -608,7 +690,7 @@ export default function AgroOrdenes() {
       {/* ========================================================================= */}
       {showReportModal && currentOrder && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[95vh]">
             
             <div className="bg-[#1A5729] px-6 py-4 flex justify-between items-center text-white shrink-0">
               <div>
@@ -620,8 +702,8 @@ export default function AgroOrdenes() {
                 </p>
               </div>
               <div className="flex gap-2">
-                {/* Botón para alternar a modo edición solo si es el empleado asignado */}
-                {currentOrder.id_empleado === currentUserId && !isEditingReport && (
+                {/* CONDICIÓN MODIFICADA AQUÍ: isBoss o empleado dueño */}
+                {(currentOrder.id_empleado === currentUserId || isBoss) && !isEditingReport && (
                   <button 
                     onClick={() => setIsEditingReport(true)} 
                     className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded text-[10px] font-black tracking-widest transition-colors flex items-center gap-1"
@@ -630,7 +712,13 @@ export default function AgroOrdenes() {
                     Editar
                   </button>
                 )}
-                <button onClick={() => setShowReportModal(false)} className="hover:bg-white/10 p-2 rounded-full transition-colors">
+                <button 
+                  onClick={() => { 
+                    setShowReportModal(false); 
+                    stopCamera(); 
+                  }} 
+                  className="hover:bg-white/10 p-2 rounded-full transition-colors"
+                >
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -668,41 +756,122 @@ export default function AgroOrdenes() {
                     </div>
                   </div>
 
-                  {/* Columna Derecha: Carga de Archivos */}
+                  {/* Columna Derecha: Carga de Archivos y Captura Media */}
                   <div className="space-y-6">
-                    {/* Input Imagen */}
+                    
+                    {/* Input Imagen / Video / Cámara */}
                     <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-sm">
-                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                        Evidencia Fotográfica
+                        Evidencia (Foto o Video)
                       </label>
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        capture="environment" // Habilita la cámara en móviles
-                        onChange={(e) => handleFileUpload(e, 'url_imagen')}
-                        className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
-                      />
-                      {(reporteForm.url_imagen || currentOrder.url_imagen) && (
-                         <p className="mt-2 text-[10px] text-emerald-600 font-bold">✓ Imagen lista para subir / actual</p>
+                      
+                      {isCameraActive ? (
+                        <div className="flex flex-col gap-2">
+                          <video ref={videoRef} autoPlay playsInline className="w-full rounded-md bg-black" />
+                          <div className="flex justify-between gap-2 mt-2">
+                            <button type="button" onClick={takePhoto} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 text-xs font-bold uppercase rounded shadow transition-colors">
+                              Tomar Foto
+                            </button>
+                            <button type="button" onClick={stopCamera} className="flex-1 bg-slate-300 hover:bg-slate-400 text-slate-800 py-2 text-xs font-bold uppercase rounded transition-colors">
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-3">
+                          {/* SOPORTE DE VIDEO AÑADIDO AL ACCEPT */}
+                          <input 
+                            type="file" 
+                            accept="image/*,video/*"
+                            onChange={(e) => handleFileUpload(e, 'url_imagen')}
+                            className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                          />
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">O también</span>
+                            <button 
+                              type="button" 
+                              onClick={startCamera} 
+                              className="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold py-2 px-4 rounded border border-emerald-300 flex items-center gap-2 transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                              Usar Cámara Web
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {(reporteForm.url_imagen || currentOrder.url_imagen) && !isCameraActive && (
+                         <div className="mt-4 border-t border-slate-100 pt-3">
+                           <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">✓ Archivo Listo</p>
+                           {/* RENDERIZADO DINÁMICO: VIDEO O IMAGEN */}
+                           {reporteForm.url_imagen && reporteForm.url_imagen.includes('video') ? (
+                             <video 
+                               src={reporteForm.url_imagen} 
+                               controls 
+                               className="mt-2 w-full max-h-48 object-cover rounded shadow border border-slate-200" 
+                             />
+                           ) : (
+                             reporteForm.url_imagen && (
+                               <img 
+                                 src={reporteForm.url_imagen.startsWith('data:') ? reporteForm.url_imagen : `data:image/jpeg;base64,${reporteForm.url_imagen}`} 
+                                 alt="Preview" 
+                                 className="mt-2 w-24 h-24 object-cover rounded shadow border border-slate-200" 
+                               />
+                             )
+                           )}
+                         </div>
                       )}
                     </div>
 
-                    {/* Input Audio */}
+                    {/* Input Audio / Micrófono */}
                     <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-sm">
-                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                         Nota de Voz
                       </label>
-                      <input 
-                        type="file" 
-                        accept="audio/*"
-                        capture="microphone" // Habilita la grabadora en móviles
-                        onChange={(e) => handleFileUpload(e, 'url_audio')}
-                        className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-                      />
-                      {(reporteForm.url_audio || currentOrder.url_audio) && (
-                         <p className="mt-2 text-[10px] text-blue-600 font-bold">✓ Audio listo para subir / actual</p>
+                      
+                      <div className="flex flex-col gap-3">
+                        <input 
+                          type="file" 
+                          accept="audio/*"
+                          onChange={(e) => handleFileUpload(e, 'url_audio')}
+                          className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                        />
+                        
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">O también</span>
+                          {!isRecording ? (
+                            <button 
+                              type="button" 
+                              onClick={startRecording} 
+                              className="bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-bold py-2 px-4 rounded border border-blue-300 flex items-center gap-2 transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                              Grabar Audio
+                            </button>
+                          ) : (
+                            <button 
+                              type="button" 
+                              onClick={stopRecording} 
+                              className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-2 px-4 rounded shadow flex items-center gap-2 animate-pulse"
+                            >
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" /></svg>
+                              Detener y Guardar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {(reporteForm.url_audio || currentOrder.url_audio) && !isRecording && (
+                         <div className="mt-4 border-t border-slate-100 pt-3">
+                           <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">✓ Audio Listo</p>
+                           {reporteForm.url_audio && (
+                             <audio controls className="w-full h-10 mt-2 rounded outline-none">
+                               <source src={reporteForm.url_audio.startsWith('data:') ? reporteForm.url_audio : `data:audio/webm;base64,${reporteForm.url_audio}`} />
+                             </audio>
+                           )}
+                         </div>
                       )}
                     </div>
                   </div>
@@ -726,10 +895,8 @@ export default function AgroOrdenes() {
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
                           Audio del Empleado
                         </label>
-                        {/* Como Flutter puede mandar m4a o aac, ponemos el source general de base64 */}
-                        <audio controls className="w-full h-10 rounded-md outline-none">
-                          <source src={`data:audio/aac;base64,${currentOrder.url_audio}`} />
-                          <source src={`data:audio/mp4;base64,${currentOrder.url_audio}`} />
+                        <audio controls className="w-full h-10 rounded-md outline-none border border-slate-200">
+                          <source src={currentOrder.url_audio.startsWith('data:') ? currentOrder.url_audio : `data:audio/webm;base64,${currentOrder.url_audio}`} />
                           Tu navegador no soporta el reproductor.
                         </audio>
                       </div>
@@ -737,19 +904,28 @@ export default function AgroOrdenes() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Evidencia Fotográfica</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Evidencia (Foto/Video)</label>
                     {currentOrder.url_imagen ? (
                       <div className="rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-white flex items-center justify-center p-1">
-                        <img 
-                          src={currentOrder.url_imagen.startsWith('data:') ? currentOrder.url_imagen : `data:image/jpeg;base64,${currentOrder.url_imagen}`} 
-                          alt="Evidencia del Trabajo" 
-                          className="w-full h-auto object-cover rounded max-h-[300px]"
-                        />
+                        {/* RENDERIZADO DINÁMICO EN LECTURA: VIDEO O IMAGEN */}
+                        {currentOrder.url_imagen.includes('video') ? (
+                          <video 
+                            src={currentOrder.url_imagen} 
+                            controls 
+                            className="w-full max-h-[300px] rounded object-cover" 
+                          />
+                        ) : (
+                          <img 
+                            src={currentOrder.url_imagen.startsWith('data:') ? currentOrder.url_imagen : `data:image/jpeg;base64,${currentOrder.url_imagen}`} 
+                            alt="Evidencia del Trabajo" 
+                            className="w-full h-auto object-cover rounded max-h-[300px]"
+                          />
+                        )}
                       </div>
                     ) : (
                       <div className="h-[200px] bg-slate-100/50 rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400">
                         <svg className="w-12 h-12 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        <span className="text-[10px] font-bold uppercase tracking-wider">Sin fotografía</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Sin archivo adjunto</span>
                       </div>
                     )}
                   </div>
@@ -761,7 +937,7 @@ export default function AgroOrdenes() {
             <div className="bg-white px-6 py-4 border-t border-slate-200 flex justify-end gap-3 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
               {isEditingReport ? (
                 <>
-                  <button type="button" onClick={() => setIsEditingReport(false)} className="px-6 py-2.5 bg-slate-100 text-slate-600 hover:bg-slate-200 text-[10px] font-black uppercase tracking-widest rounded transition-all">Cancelar Edición</button>
+                  <button type="button" onClick={() => { setIsEditingReport(false); stopCamera(); }} className="px-6 py-2.5 bg-slate-100 text-slate-600 hover:bg-slate-200 text-[10px] font-black uppercase tracking-widest rounded transition-all">Cancelar Edición</button>
                   <button type="submit" form="formReporte" disabled={isSubmittingReport} className="px-6 py-2.5 bg-[#1A5729] text-white text-[10px] font-black uppercase tracking-widest rounded shadow-md hover:bg-[#144320] disabled:bg-slate-400 transition-all">
                     {isSubmittingReport ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
                   </button>
@@ -775,7 +951,6 @@ export default function AgroOrdenes() {
         </div>
       )}
 
-      {/* Resto de Modales (Crear, Asignar) se mantienen igual... */}
       {/* MODAL 1: CREAR ORDEN */}
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">

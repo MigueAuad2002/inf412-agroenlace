@@ -66,6 +66,14 @@ export default function DashboardLayout() {
       ]
     },
     {
+      modulo: 'Reportes y Datos',
+      rolesPermitidos: [1,2], 
+      submenus: [
+        { nombre: 'Dashboard Directivo', ruta: '/reportes'},
+        { nombre: 'Importacion/Exportacion de Datos Masivos', ruta: '/import-export'},
+      ]
+    },
+    {
       modulo: 'Seguridad y Accesos',
       rolesPermitidos: [1], 
       submenus: [

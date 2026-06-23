@@ -13,23 +13,37 @@ class PedidosScreen extends StatefulWidget {
 
 class _PedidosScreenState extends State<PedidosScreen> {
   bool loading = true;
+  bool detalleLoading = false;
+  bool procesandoPago = false;
+  bool qrLoading = false;
+
   String message = '';
-  String selectedFilter = 'TODOS';
+  String metodoPago = 'TARJETA';
+
+  final numeroController = TextEditingController();
+  final titularController = TextEditingController();
+  final expiracionController = TextEditingController();
+  final cvvController = TextEditingController();
+
+  String tipoTarjeta = 'VISA';
 
   List<PedidoResumen> pedidos = [];
-
-  List<PedidoResumen> get pedidosFiltrados {
-    if (selectedFilter == 'TODOS') return pedidos;
-
-    return pedidos.where((pedido) {
-      return pedido.estadoTransaccion.toUpperCase() == selectedFilter;
-    }).toList();
-  }
+  final Map<int, List<PedidoDetalle>> detallesCache = {};
+  final Set<int> pagosConfirmados = {};
 
   @override
   void initState() {
     super.initState();
     cargarHistorial();
+  }
+
+  @override
+  void dispose() {
+    numeroController.dispose();
+    titularController.dispose();
+    expiracionController.dispose();
+    cvvController.dispose();
+    super.dispose();
   }
 
   Future<void> cargarHistorial() async {
@@ -49,10 +63,43 @@ class _PedidosScreenState extends State<PedidosScreen> {
     });
   }
 
+  bool pedidoPagado(PedidoResumen pedido) {
+    final estado = pedido.estadoTransaccion.toUpperCase();
+    return estado == 'CONFIRMADO' ||
+        estado == 'COMPLETADO' ||
+        estado == 'APROBADO' ||
+        pagosConfirmados.contains(pedido.nroTransaccion);
+  }
+
   Future<void> verDetalle(PedidoResumen pedido) async {
+    setState(() {
+      metodoPago = 'TARJETA';
+      procesandoPago = false;
+      qrLoading = false;
+      numeroController.clear();
+      titularController.clear();
+      expiracionController.clear();
+      cvvController.clear();
+      tipoTarjeta = 'VISA';
+    });
+
+    if (detallesCache.containsKey(pedido.nroTransaccion)) {
+      if (!mounted) return;
+      _abrirDetalle(pedido, detallesCache[pedido.nroTransaccion]!);
+      return;
+    }
+
+    setState(() {
+      detalleLoading = true;
+    });
+
     final result = await PedidoService.obtenerDetalle(pedido.nroTransaccion);
 
     if (!mounted) return;
+
+    setState(() {
+      detalleLoading = false;
+    });
 
     if (!result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -61,59 +108,123 @@ class _PedidosScreenState extends State<PedidosScreen> {
       return;
     }
 
+    detallesCache[pedido.nroTransaccion] = result.detalles;
+    _abrirDetalle(pedido, result.detalles);
+  }
+
+  void seleccionarMetodo(String metodo, StateSetter setModalState) {
+    setState(() {
+      metodoPago = metodo;
+    });
+
+    setModalState(() {});
+
+    if (metodo == 'QR_BANCARIO') {
+      setState(() {
+        qrLoading = true;
+      });
+      setModalState(() {});
+
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        setState(() {
+          qrLoading = false;
+        });
+        setModalState(() {});
+      });
+    }
+  }
+
+  Future<void> procesarPagoSimulado(
+    PedidoResumen pedido,
+    StateSetter setModalState,
+  ) async {
+    if (pedidoPagado(pedido)) return;
+
+    if (metodoPago == 'TARJETA') {
+      if (numeroController.text.trim().isEmpty ||
+          titularController.text.trim().isEmpty ||
+          expiracionController.text.trim().isEmpty ||
+          cvvController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Completa los datos de la tarjeta para simular el pago.'),
+          ),
+        );
+        return;
+      }
+    }
+
+    setState(() {
+      procesandoPago = true;
+    });
+    setModalState(() {});
+
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (!mounted) return;
+
+    setState(() {
+      procesandoPago = false;
+      pagosConfirmados.add(pedido.nroTransaccion);
+    });
+    setModalState(() {});
+  }
+
+  void _abrirDetalle(PedidoResumen pedido, List<PedidoDetalle> detalles) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.backgroundBlue,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(18),
+        ),
       ),
       builder: (_) {
-        return _buildDetalleSheet(pedido, result.detalles);
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return _buildDetalleSheet(
+              pedido,
+              detalles,
+              setModalState,
+            );
+          },
+        );
       },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = pedidosFiltrados;
+    final totalPedidos = pedidos.length;
+    final montoTotal = pedidos.fold(0.0, (sum, p) => sum + p.montoTotal);
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundBlue,
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Column(
           children: [
             _buildTopBar(),
             Expanded(
-              child: loading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppTheme.primaryGreen,
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: cargarHistorial,
-                      color: AppTheme.primaryGreen,
-                      child: ListView(
-                        padding: const EdgeInsets.all(18),
-                        children: [
-                          _buildHeader(),
-                          const SizedBox(height: 12),
-                          _buildStatsRow(),
-                          const SizedBox(height: 12),
-                          _buildFilters(),
-                          if (message.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            AgroErrorBox(message: message),
-                          ],
-                          const SizedBox(height: 16),
-                          if (filtered.isEmpty)
-                            _buildEmptyState()
-                          else
-                            ...filtered.map(_buildPedidoCard),
-                        ],
-                      ),
-                    ),
+              child: RefreshIndicator(
+                onRefresh: cargarHistorial,
+                color: AppTheme.primaryGreen,
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _buildMainHeader(),
+                    const SizedBox(height: 12),
+                    _buildStats(totalPedidos, montoTotal),
+                    if (message.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      AgroErrorBox(message: message),
+                    ],
+                    const SizedBox(height: 16),
+                    _buildHistorialCard(),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -123,10 +234,8 @@ class _PedidosScreenState extends State<PedidosScreen> {
 
   Widget _buildTopBar() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-      decoration: const BoxDecoration(
-        color: AppTheme.primaryGreen,
-      ),
+      color: AppTheme.primaryGreen,
+      padding: const EdgeInsets.fromLTRB(10, 10, 12, 12),
       child: Row(
         children: [
           IconButton(
@@ -134,7 +243,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
               Navigator.pop(context);
             },
             style: IconButton.styleFrom(
-              backgroundColor: Colors.white.withOpacity(0.14),
+              backgroundColor: Colors.white.withOpacity(0.12),
               foregroundColor: Colors.white,
             ),
             icon: const Icon(Icons.arrow_back),
@@ -145,21 +254,22 @@ class _PedidosScreenState extends State<PedidosScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'MIS PEDIDOS',
+                  'MIS TRANSACCIONES',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w900,
+                    color: Colors.white,
                     letterSpacing: 1,
                   ),
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'Historial de compras',
+                  'Historial de compras y pagos',
                   style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
+                    color: Colors.white70,
+                    letterSpacing: 0.6,
                   ),
                 ),
               ],
@@ -168,7 +278,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
           IconButton(
             onPressed: cargarHistorial,
             style: IconButton.styleFrom(
-              backgroundColor: Colors.white.withOpacity(0.14),
+              backgroundColor: Colors.white.withOpacity(0.12),
               foregroundColor: Colors.white,
             ),
             icon: const Icon(Icons.refresh),
@@ -178,54 +288,59 @@ class _PedidosScreenState extends State<PedidosScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildMainHeader() {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppTheme.borderColor),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryGreen.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.receipt_long,
-              color: AppTheme.primaryGreen,
-              size: 28,
-            ),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          const SizedBox(width: 13),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'HISTORIAL DE PEDIDOS',
+        ],
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 7,
+                height: 30,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryGreen,
+                  ),
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'MIS TRANSACCIONES',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 18,
                     fontWeight: FontWeight.w900,
-                    color: AppTheme.mutedText,
-                    letterSpacing: 1.3,
-                  ),
-                ),
-                SizedBox(height: 5),
-                Text(
-                  'Consulta tus pedidos registrados y sus detalles.',
-                  style: TextStyle(
-                    fontSize: 13,
                     color: AppTheme.slateText,
-                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
                   ),
                 ),
-              ],
+              ),
+            ],
+          ),
+          Padding(
+            padding: EdgeInsets.only(left: 17, top: 4),
+            child: Text(
+              'Historial de compras y pagos',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                color: AppTheme.mutedText,
+                letterSpacing: 1.1,
+              ),
             ),
           ),
         ],
@@ -233,49 +348,46 @@ class _PedidosScreenState extends State<PedidosScreen> {
     );
   }
 
-  Widget _buildStatsRow() {
-    final totalPedidos = pedidos.length;
-    final totalMonto = pedidos.fold(0.0, (sum, pedido) => sum + pedido.montoTotal);
-
+  Widget _buildStats(int totalPedidos, double montoTotal) {
     return Row(
       children: [
         Expanded(
-          child: _buildStatCard(
-            label: 'PEDIDOS',
+          child: _buildStatTile(
+            icon: Icons.receipt_long,
+            title: 'REGISTROS',
             value: totalPedidos.toString(),
-            icon: Icons.shopping_bag,
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: _buildStatCard(
-            label: 'TOTAL',
-            value: 'Bs ${totalMonto.toStringAsFixed(2)}',
-            icon: Icons.payments,
+          child: _buildStatTile(
+            icon: Icons.payments_outlined,
+            title: 'TOTAL',
+            value: 'Bs. ${montoTotal.toStringAsFixed(2)}',
           ),
         ),
       ],
     );
   }
 
-  Widget _buildStatCard({
-    required String label,
-    required String value,
+  Widget _buildStatTile({
     required IconData icon,
+    required String title,
+    required String value,
   }) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.borderColor),
+        borderRadius: BorderRadius.circular(9),
       ),
       child: Row(
         children: [
           Icon(
             icon,
             color: AppTheme.primaryGreen,
-            size: 22,
+            size: 23,
           ),
           const SizedBox(width: 9),
           Expanded(
@@ -283,7 +395,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  label,
+                  title,
                   style: const TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w900,
@@ -296,7 +408,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
                   value,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w900,
                     color: AppTheme.slateText,
                   ),
@@ -309,225 +421,152 @@ class _PedidosScreenState extends State<PedidosScreen> {
     );
   }
 
-  Widget _buildFilters() {
-    return Row(
-      children: [
-        _buildFilterChip('TODOS'),
-        const SizedBox(width: 8),
-        _buildFilterChip('PENDIENTE'),
-        const SizedBox(width: 8),
-        _buildFilterChip('COMPLETADO'),
-      ],
-    );
-  }
-
-  Widget _buildFilterChip(String value) {
-    final selected = selectedFilter == value;
-
-    return Expanded(
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            selectedFilter = value;
-          });
-        },
-        borderRadius: BorderRadius.circular(30),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: selected ? AppTheme.primaryGreen : Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: selected ? AppTheme.primaryGreen : AppTheme.borderColor,
-            ),
-          ),
-          child: Text(
-            value,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              color: selected ? Colors.white : AppTheme.mutedText,
-              letterSpacing: 0.8,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPedidoCard(PedidoResumen pedido) {
+  Widget _buildHistorialCard() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          onTap: () => verDetalle(pedido),
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            padding: const EdgeInsets.all(15),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppTheme.borderColor),
+        border: Border.all(color: AppTheme.borderColor),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: AppTheme.borderColor),
+              ),
             ),
             child: Row(
               children: [
                 Container(
-                  width: 52,
-                  height: 52,
+                  padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryGreen.withOpacity(0.10),
-                    borderRadius: BorderRadius.circular(15),
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
-                    Icons.receipt,
-                    color: AppTheme.primaryGreen,
-                    size: 26,
+                    Icons.description_outlined,
+                    color: AppTheme.mutedText,
+                    size: 22,
                   ),
                 ),
-                const SizedBox(width: 13),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'PEDIDO NRO. ${pedido.nroTransaccion}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.slateText,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        pedido.fechaHora,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.mutedText,
-                        ),
-                      ),
-                      const SizedBox(height: 9),
-                      Row(
-                        children: [
-                          _buildEstadoBadge(pedido.estadoTransaccion),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Bs ${pedido.montoTotal.toStringAsFixed(2)}',
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
-                                color: AppTheme.primaryGreen,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                  child: Text(
+                    'HISTORIAL\n${pedidos.length} REGISTROS',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      height: 1.35,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.slateText,
+                      letterSpacing: 1,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 15,
-                  color: AppTheme.mutedText,
                 ),
               ],
             ),
           ),
-        ),
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(
+                color: AppTheme.primaryGreen,
+              ),
+            )
+          else if (pedidos.isEmpty)
+            _buildEmpty()
+          else
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: pedidos.map(_buildPedidoItem).toList(),
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildDetalleSheet(
-    PedidoResumen pedido,
-    List<PedidoDetalle> detalles,
-  ) {
-    final total = detalles.fold(0.0, (sum, item) => sum + item.subtotal);
+  Widget _buildPedidoItem(PedidoResumen pedido) {
+    final confirmado = pedidoPagado(pedido);
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    return InkWell(
+      onTap: () => verDetalle(pedido),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppTheme.borderColor),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Stack(
           children: [
-            Container(
-              width: 46,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade400,
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
+            Positioned(
+              left: -14,
+              top: -14,
+              bottom: -14,
+              child: Container(
+                width: 5,
                 color: AppTheme.primaryGreen,
-                borderRadius: BorderRadius.circular(16),
               ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'PEDIDO NRO. ${pedido.nroTransaccion}',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    pedido.fechaHora,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.white70,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: detalles.map(_buildDetalleItem).toList(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.borderColor),
-              ),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'TOTAL',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: AppTheme.mutedText,
-                        letterSpacing: 1.2,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'ORD-${pedido.nroTransaccion.toString().padLeft(5, '0')}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.slateText,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
                       ),
-                    ),
+                      _buildEstadoBadge(confirmado),
+                    ],
                   ),
-                  Text(
-                    'Bs ${total.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: AppTheme.slateText,
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(
+                        pedido.fechaHora,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.mutedText,
+                        ),
+                      ),
+                      const Spacer(),
+                      const Text(
+                        'TOTAL',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.mutedText,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      'Bs. ${pedido.montoTotal.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.slateText,
+                      ),
                     ),
                   ),
                 ],
@@ -539,60 +578,28 @@ class _PedidosScreenState extends State<PedidosScreen> {
     );
   }
 
-  Widget _buildDetalleItem(PedidoDetalle item) {
+  Widget _buildEstadoBadge(bool confirmado) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 9),
-      padding: const EdgeInsets.all(13),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.borderColor),
+        color: confirmado ? Colors.green.shade50 : Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryGreen.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.inventory_2,
-              color: AppTheme.primaryGreen,
-              size: 22,
-            ),
+          Icon(
+            confirmado ? Icons.check : Icons.access_time,
+            size: 13,
+            color: confirmado ? Colors.green.shade700 : Colors.amber.shade700,
           ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.nombreProducto.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    color: AppTheme.slateText,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${item.cantidad.toStringAsFixed(0)} x Bs ${item.precioVenta.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: AppTheme.mutedText,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(width: 4),
           Text(
-            'Bs ${item.subtotal.toStringAsFixed(2)}',
-            style: const TextStyle(
-              fontSize: 12,
+            confirmado ? 'PAGADO' : 'PENDIENTE',
+            style: TextStyle(
+              fontSize: 9,
               fontWeight: FontWeight.w900,
-              color: AppTheme.primaryGreen,
+              color: confirmado ? Colors.green.shade700 : Colors.amber.shade700,
+              letterSpacing: 0.8,
             ),
           ),
         ],
@@ -600,66 +607,768 @@ class _PedidosScreenState extends State<PedidosScreen> {
     );
   }
 
-  Widget _buildEstadoBadge(String estado) {
-    final value = estado.toUpperCase();
+  Widget _buildDetalleSheet(
+    PedidoResumen pedido,
+    List<PedidoDetalle> detalles,
+    StateSetter setModalState,
+  ) {
+    final montoTotal = detalles.fold(0.0, (sum, item) => sum + item.subtotal);
+    final confirmado = pedidoPagado(pedido);
 
-    Color bg = Colors.orange.shade50;
-    Color border = Colors.orange.shade200;
-    Color text = Colors.orange.shade800;
-
-    if (value == 'COMPLETADO' || value == 'APROBADO') {
-      bg = Colors.green.shade50;
-      border = Colors.green.shade200;
-      text = Colors.green.shade800;
-    }
-
-    if (value == 'RECHAZADO' || value == 'CANCELADO') {
-      bg = Colors.red.shade50;
-      border = Colors.red.shade200;
-      text = Colors.red.shade700;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: border),
+    return SafeArea(
+      child: DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.90,
+        minChildSize: 0.50,
+        maxChildSize: 0.96,
+        builder: (context, scrollController) {
+          return ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+            children: [
+              Center(
+                child: Container(
+                  width: 46,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _buildFacturaHeader(pedido),
+              if (confirmado) ...[
+                const SizedBox(height: 10),
+                _buildPagoConfirmadoBanner(),
+              ],
+              const SizedBox(height: 12),
+              if (detalleLoading)
+                const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppTheme.primaryGreen,
+                    ),
+                  ),
+                )
+              else
+                _buildFacturaDetalle(detalles, montoTotal),
+              if (!confirmado) ...[
+                const SizedBox(height: 14),
+                _buildPagoPanel(pedido, montoTotal, setModalState),
+              ],
+            ],
+          );
+        },
       ),
-      child: Text(
-        value,
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w900,
-          color: text,
+    );
+  }
+
+  Widget _buildFacturaHeader(PedidoResumen pedido) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryGreen,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(50),
+            ),
+            child: const Icon(
+              Icons.receipt_long,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'FACTURA DE COMPRA',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'TRANSACCIÓN #${pedido.nroTransaccion.toString().padLeft(5, '0')}',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white70,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            pedido.fechaHora.split(' ').first,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPagoConfirmadoBanner() {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        border: Border.all(color: Colors.green.shade100),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.check_circle_outline,
+            color: Colors.green.shade700,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'PAGO CONFIRMADO EXITOSAMENTE',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: Colors.green.shade800,
+                letterSpacing: 1,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFacturaDetalle(
+    List<PedidoDetalle> detalles,
+    double montoTotal,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppTheme.borderColor),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FAFC),
+              border: Border(
+                bottom: BorderSide(color: AppTheme.borderColor),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'INSUMO',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.mutedText,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'CANT.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.mutedText,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'SUBTOTAL',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.mutedText,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ...detalles.map((item) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFFF1F5F9)),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      item.nombreProducto,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.slateText,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      item.cantidad.toStringAsFixed(0),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.mutedText,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Bs. ${item.subtotal.toStringAsFixed(2)}',
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.primaryGreen,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: [
+                _buildTotalRow('SUBTOTAL', montoTotal),
+                const SizedBox(height: 7),
+                _buildTotalRow('IVA (13%)', 0),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(13),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'TOTAL A PAGAR',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.slateText,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        'Bs. ${montoTotal.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.primaryGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTotalRow(String label, double value) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.mutedText,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          'Bs. ${value.toStringAsFixed(2)}',
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            color: AppTheme.mutedText,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPagoPanel(
+    PedidoResumen pedido,
+    double montoTotal,
+    StateSetter setModalState,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        border: Border.all(color: AppTheme.borderColor),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.lock_outline,
+                color: Colors.amber,
+                size: 18,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'SELECCIONA UN MÉTODO DE PAGO',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  color: AppTheme.slateText,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildMetodoButton(
+                'TARJETA',
+                Icons.credit_card,
+                setModalState,
+              ),
+              const SizedBox(width: 8),
+              _buildMetodoButton(
+                'QR_BANCARIO',
+                Icons.qr_code,
+                setModalState,
+              ),
+              const SizedBox(width: 8),
+              _buildMetodoButton(
+                'EFECTIVO',
+                Icons.payments_outlined,
+                setModalState,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _buildContenidoPago(setModalState),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: ElevatedButton.icon(
+              onPressed: procesandoPago || qrLoading
+                  ? null
+                  : () => procesarPagoSimulado(pedido, setModalState),
+              icon: procesandoPago
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(Icons.arrow_forward, size: 18),
+              label: Text(
+                procesandoPago
+                    ? 'VERIFICANDO...'
+                    : metodoPago == 'QR_BANCARIO'
+                        ? 'VERIFICAR PAGO QR'
+                        : 'PAGAR BS. ${montoTotal.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.3,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black87,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade400,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetodoButton(
+    String value,
+    IconData icon,
+    StateSetter setModalState,
+  ) {
+    final selected = metodoPago == value;
+
+    return Expanded(
+      child: InkWell(
+        onTap: procesandoPago
+            ? null
+            : () => seleccionarMetodo(value, setModalState),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          height: 82,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: selected ? AppTheme.primaryGreen : AppTheme.borderColor,
+              width: selected ? 2 : 1,
+            ),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.primaryGreen.withOpacity(0.12),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 22,
+                color: selected ? AppTheme.primaryGreen : AppTheme.mutedText,
+              ),
+              const SizedBox(height: 7),
+              Text(
+                value.replaceAll('_', ' '),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.w900,
+                  color: selected ? AppTheme.primaryGreen : AppTheme.mutedText,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildContenidoPago(StateSetter setModalState) {
+    if (metodoPago == 'QR_BANCARIO') {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppTheme.borderColor),
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: qrLoading
+            ? const Column(
+                children: [
+                  CircularProgressIndicator(
+                    color: AppTheme.primaryGreen,
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'GENERANDO CÓDIGO EN EL BANCO...',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.mutedText,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
+              )
+            : const Column(
+                children: [
+                  Text(
+                    'ESCANEA EL CÓDIGO PARA PAGAR',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.mutedText,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  SizedBox(
+                    width: 150,
+                    height: 150,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.fromBorderSide(
+                          BorderSide(
+                            color: AppTheme.primaryGreen,
+                            width: 2,
+                            style: BorderStyle.solid,
+                          ),
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.qr_code_2,
+                          size: 110,
+                          color: AppTheme.primaryGreen,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'Una vez escaneado, toca verificar pago QR.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.mutedText,
+                    ),
+                  ),
+                ],
+              ),
+      );
+    }
+
+    if (metodoPago == 'EFECTIVO') {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.amber.shade50,
+          border: Border.all(color: Colors.amber.shade100),
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.warning_amber,
+              color: Colors.amber.shade700,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'PAGO CONTRA ENTREGA / CAJA',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: Colors.amber.shade800,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'Paga al momento de recibir tus insumos o acércate a la sucursal.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: Colors.amber.shade800,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppTheme.borderColor),
+        borderRadius: BorderRadius.circular(9),
       ),
-      child: const Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.receipt_long_outlined,
-            size: 46,
-            color: AppTheme.mutedText,
-          ),
-          SizedBox(height: 12),
-          Text(
-            'No hay pedidos para mostrar',
+          const Text(
+            'DATOS DE LA TARJETA',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              color: AppTheme.mutedText,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _buildRadioTarjeta('VISA', setModalState),
+              const SizedBox(width: 12),
+              _buildRadioTarjeta('MASTERCARD', setModalState),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildInput(
+            label: 'Número de tarjeta',
+            hint: '0000 0000 0000 0000',
+            controller: numeroController,
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 10),
+          _buildInput(
+            label: 'Titular de la tarjeta',
+            hint: 'JUAN PEREZ',
+            controller: titularController,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildInput(
+                  label: 'Vencimiento',
+                  hint: 'MM/YY',
+                  controller: expiracionController,
+                  keyboardType: TextInputType.datetime,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildInput(
+                  label: 'CVV',
+                  hint: '123',
+                  controller: cvvController,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRadioTarjeta(String value, StateSetter setModalState) {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          tipoTarjeta = value;
+        });
+        setModalState(() {});
+      },
+      child: Row(
+        children: [
+          Radio<String>(
+            value: value,
+            groupValue: tipoTarjeta,
+            activeColor: AppTheme.primaryGreen,
+            onChanged: (selected) {
+              setState(() {
+                tipoTarjeta = selected ?? 'VISA';
+              });
+              setModalState(() {});
+            },
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 11,
               fontWeight: FontWeight.w900,
               color: AppTheme.slateText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInput({
+    required String label,
+    required String hint,
+    required TextEditingController controller,
+    TextInputType keyboardType = TextInputType.text,
+    bool obscureText = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            color: AppTheme.mutedText,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 5),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          obscureText: obscureText,
+          decoration: InputDecoration(
+            hintText: hint,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmpty() {
+    return const Padding(
+      padding: EdgeInsets.all(34),
+      child: Column(
+        children: [
+          Icon(
+            Icons.shopping_cart_outlined,
+            size: 46,
+            color: Colors.grey,
+          ),
+          SizedBox(height: 10),
+          Text(
+            'AÚN NO TIENES COMPRAS',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              color: AppTheme.mutedText,
+              letterSpacing: 1.2,
             ),
           ),
         ],

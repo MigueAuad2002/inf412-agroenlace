@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../services/offline_pedido_service.dart';
 import '../services/pedido_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
@@ -115,7 +115,9 @@ class _ProductosScreenState extends State<ProductosScreen> {
       message = '';
     });
 
-    final result = await PedidoService.crearPedido(carrito.values.toList());
+    final result = await OfflinePedidoService.instance.createPedidoOrSaveOffline(
+      carrito.values.toList(),
+    );
 
     if (!mounted) return;
 
@@ -133,11 +135,13 @@ class _ProductosScreenState extends State<ProductosScreen> {
 
     setState(() {
       carrito.clear();
-      message = 'Pedido registrado correctamente. Nro: ${result.nroTransaccion}';
+      message = result.message;
       messageSuccess = true;
     });
 
-    await cargarCatalogo();
+    if (OfflinePedidoService.instance.isOnline) {
+      await cargarCatalogo();
+    }
 
     if (!mounted) return;
 

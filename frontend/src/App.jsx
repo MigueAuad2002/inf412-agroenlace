@@ -28,6 +28,7 @@ import AgroCRM from "./pages/ClientesGestion";
 import VentasCatalogo from "./pages/VentasCatalogo";
 import HistorialPedidos from "./pages/VentasHistorial";
 import ReportesBi from "./pages/ReportesBi";
+import ImportarMasivo from "./pages/ImportarMasivo";
 
 
 function AnimatedRoutes() {
@@ -84,6 +85,7 @@ function AnimatedRoutes() {
               <Route path="/security/tenants" element={<SecurityTenants/>} />
               <Route path="/security/backup" element={<SecurityBackup/>} />
               <Route path="/reportes" element={<ReportesBi/>} />
+              <Route path="/import-export" element={<ImportarMasivo/>} />
             </Route>
 
           </Route>

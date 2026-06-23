@@ -1126,9 +1126,9 @@ class _PedidosScreenState extends State<PedidosScreen> {
                   ),
                 ],
               )
-            : const Column(
+            : Column(
                 children: [
-                  Text(
+                  const Text(
                     'ESCANEA EL CÓDIGO PARA PAGAR',
                     style: TextStyle(
                       fontSize: 10,
@@ -1137,32 +1137,26 @@ class _PedidosScreenState extends State<PedidosScreen> {
                       letterSpacing: 1,
                     ),
                   ),
-                  SizedBox(height: 12),
-                  SizedBox(
-                    width: 150,
-                    height: 150,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.fromBorderSide(
-                          BorderSide(
-                            color: AppTheme.primaryGreen,
-                            width: 2,
-                            style: BorderStyle.solid,
-                          ),
-                        ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 160,
+                    height: 160,
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(
+                        color: AppTheme.primaryGreen,
+                        width: 2,
                       ),
-                      child: Center(
-                        child: Icon(
-                          Icons.qr_code_2,
-                          size: 110,
-                          color: AppTheme.primaryGreen,
-                        ),
-                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Image.asset(
+                      'assets/images/qr_agroenlace.jpeg',
+                      fit: BoxFit.contain,
                     ),
                   ),
-                  SizedBox(height: 10),
-                  Text(
+                  const SizedBox(height: 10),
+                  const Text(
                     'Una vez escaneado, toca verificar pago QR.',
                     textAlign: TextAlign.center,
                     style: TextStyle(

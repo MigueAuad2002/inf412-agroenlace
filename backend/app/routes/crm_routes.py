@@ -96,3 +96,15 @@ def crm_health():
         "message": "CRM real conectado a base de datos.",
         "module": "CRM Clientes"
     }), 200
+
+@router.route('/api/crm/notificaciones/enviar', methods=['POST'])
+@crm_required
+def enviar_notificacion_crm(payload_token=None):
+    data = request.get_json()
+    
+    # IMPORTANTE: Importa tu variable 'socketio' desde el archivo raíz donde la iniciaste
+    # Asumiendo que tu archivo principal se llama run.py:
+    from run import socketio 
+    
+    res, status = crm_services.procesar_envio_notificaciones(data, socketio)
+    return jsonify(res), status

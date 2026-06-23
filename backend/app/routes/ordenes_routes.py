@@ -84,18 +84,3 @@ def update_mi_orden():
     res, status = ordenes_services.update_work_order_by_employee(data, employee_id)
     return jsonify(res), status
 
-
-# =====================================================================
-# NUEVO ENDPOINT: PARA LEER / MOSTRAR LAS IMÁGENES Y AUDIOS EN FRONTEND
-# =====================================================================
-@ordenes_routes.route('/api/media/<path:filename>', methods=['GET'])
-def get_media(filename):
-    """
-    Este endpoint permite que React o Flutter lean los archivos.
-    Ejemplo de uso en Flutter: Image.network('http://localhost:5000/api/media/img_12345.png')
-    """
-    # Obtenemos la ruta absoluta de donde estamos guardando los archivos
-    upload_folder = os.path.join(os.getcwd(), 'app', 'static', 'uploads')
-    
-    # send_from_directory lee el archivo físico y lo envía como respuesta HTTP válida
-    return send_from_directory(upload_folder, filename)

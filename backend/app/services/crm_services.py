@@ -282,3 +282,38 @@ def get_categories():
             "INACTIVO": "Cuenta inactiva, sin transacciones o última transacción mayor a 90 días."
         }
     }, 200
+
+
+def procesar_envio_notificaciones(data, socketio_instance):
+    """
+    Valida el payload del frontend y orquesta el envío por WebSockets.
+    """
+    clientes = data.get('clientes', [])
+    asunto = data.get('asunto', '')
+    mensaje = data.get('mensaje', '')
+    canal = data.get('canal', 'CORREO')
+
+    if not clientes or not isinstance(clientes, list):
+        return {'success': False, 'message': 'Debe seleccionar al menos un cliente válido.'}, 400
+
+    if not mensaje:
+        return {'success': False, 'message': 'El mensaje de la notificación no puede estar vacío.'}, 400
+
+    try:
+        # Importamos la función de sockets que acabamos de crear
+        from app.services.notificaciones_services import emitir_notificacion_masiva
+        
+        # 1. Ejecutar el broadcast por WebSockets
+        emitir_notificacion_masiva(socketio_instance, clientes, asunto, mensaje, canal)
+        
+        # 2. OPCIONAL: Aquí podrías guardar el registro en PostgreSQL si tienes 
+        # una tabla de "historial_notificaciones" usando tus repositorios.
+
+        return {
+            'success': True, 
+            'message': f'Notificación lanzada exitosamente a {len(clientes)} clientes.'
+        }, 200
+
+    except Exception as e:
+        print(f"[ERROR CRM NOTIFICACIONES]: {str(e)}")
+        return {'success': False, 'message': 'Error interno al intentar emitir la notificación.'}, 500

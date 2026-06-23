@@ -81,20 +81,6 @@ export default function Home() {
       )
     },
     {
-      id: 'admin',
-      titulo: 'Administración y Finanzas',
-      desc: 'Control de ingresos, egresos, cuentas por cobrar, facturación y gestión de recursos humanos.',
-      ruta: '/administracion',
-      color: 'text-orange-600 dark:text-orange-400',
-      bg: 'bg-orange-50 dark:bg-orange-500/10',
-      borde: 'hover:border-orange-500 dark:hover:border-orange-400',
-      icono: (
-        <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12.25M17.25 13.5h2.25m-2.25 3h2.25" />
-        </svg>
-      )
-    },
-    {
       id: 'reportes',
       titulo: 'Reportes e Inteligencia',
       desc: 'Cuadros de mando, analítica de datos, exportación de reportes y cruce de información corporativa.',

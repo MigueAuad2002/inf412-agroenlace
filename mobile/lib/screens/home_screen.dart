@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-
+import '../services/offline_pedido_service.dart';
 import '../services/auth_service.dart';
 import '../services/token_storage.dart';
 import '../theme/app_theme.dart';
+import '../services/notification_socket_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,11 +17,14 @@ class _HomeScreenState extends State<HomeScreen> {
   String mail = '';
   int role = 0;
   int? empresaId;
+  final socketService = NotificationSocketService.instance;
 
   @override
   void initState() {
     super.initState();
     loadUser();
+    socketService.connect();
+    OfflinePedidoService.instance.init();
   }
 
   Future<void> loadUser() async {
@@ -39,7 +43,239 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Widget _buildOfflinePedidosCard() {
+    final offlineService = OfflinePedidoService.instance;
+
+    return AnimatedBuilder(
+      animation: offlineService,
+      builder: (context, _) {
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: offlineService.pendingCount > 0
+                  ? Colors.amber.shade300
+                  : AppTheme.borderColor,
+            ),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 11,
+                height: 11,
+                decoration: BoxDecoration(
+                  color: offlineService.statusColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'MODO OFFLINE: ${offlineService.statusLabel}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.slateText,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      offlineService.pendingCount == 0
+                          ? 'No tienes pedidos pendientes por enviar.'
+                          : 'Pedidos pendientes por enviar: ${offlineService.pendingCount}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.mutedText,
+                      ),
+                    ),
+                    if (offlineService.lastMessage.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        offlineService.lastMessage,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.mutedText,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 34,
+                child: OutlinedButton(
+                  onPressed: offlineService.syncing
+                      ? null
+                      : () async {
+                          await offlineService.syncPendingOrders();
+                        },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryGreen,
+                    side: const BorderSide(color: AppTheme.primaryGreen),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                  ),
+                  child: Text(
+                    offlineService.syncing ? '...' : 'ENVIAR',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  Widget _buildSocketStatusCard() {
+    return AnimatedBuilder(
+      animation: socketService,
+      builder: (context, _) {
+        final status = socketService.status;
+        final connected = status == SocketConnectionStatus.connected;
+        final connecting = status == SocketConnectionStatus.connecting ||
+            status == SocketConnectionStatus.reconnecting;
+        final error = status == SocketConnectionStatus.error;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: error
+                  ? Colors.red.shade200
+                  : connected
+                      ? Colors.green.shade200
+                      : AppTheme.borderColor,
+            ),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 11,
+                height: 11,
+                decoration: BoxDecoration(
+                  color: socketService.statusColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    if (connected)
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.35),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CANAL DE NOTIFICACIONES: ${socketService.statusLabel}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.slateText,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      socketService.lastMessage.isEmpty
+                          ? 'Socket.IO listo para recibir eventos del servidor.'
+                          : socketService.lastMessage,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.mutedText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 34,
+                child: OutlinedButton(
+                  onPressed: connecting
+                      ? null
+                      : connected
+                          ? socketService.disconnect
+                          : socketService.reconnect,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor:
+                        connected ? Colors.red : AppTheme.primaryGreen,
+                    side: BorderSide(
+                      color: connected ? Colors.red : AppTheme.primaryGreen,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                  ),
+                  child: Text(
+                    connecting
+                        ? '...'
+                        : connected
+                            ? 'CORTAR'
+                            : 'RECONECTAR',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> logout() async {
+    socketService.disconnect();
     await AuthService.logout();
 
     if (!mounted) return;
@@ -85,6 +321,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildWelcomeCard(),
                     const SizedBox(height: 16),
+                    _buildSocketStatusCard(),
+                    const SizedBox(height: 16),
+                    _buildOfflinePedidosCard(),
+                    const SizedBox(height: 16),
                     _buildQuickStats(),
                     const SizedBox(height: 20),
                     _buildSectionTitle('MÓDULOS PRINCIPALES'),
@@ -114,6 +354,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       tag: 'CUENTA',
                       onTap: () {
                         Navigator.pushNamed(context, '/perfil');
+                      },
+                    ),
+                    _buildModuleCard(
+                      icon: Icons.assignment,
+                      title: 'Órdenes de trabajo',
+                      subtitle: 'Ver actividades asignadas y cargar reportes',
+                      tag: 'CAMPO',
+                      onTap: () {
+                        Navigator.pushNamed(context, '/ordenes');
                       },
                     ),
                     const SizedBox(height: 14),

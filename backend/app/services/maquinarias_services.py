@@ -1,3 +1,4 @@
+# app/services/maquinarias_services.py
 from app.repos import maquinaria_repos
 from app.classes.postgre import PostgreSQL
 
@@ -87,5 +88,101 @@ def remove_maquinaria(nro_maquina: int, user_id: int) -> tuple[dict, int]:
         if "violates foreign key constraint" in str(e).lower() or "foreign key" in str(e).lower():
             return {'success': False, 'message': 'No se puede eliminar la maquinaria porque está en uso o tiene historial.'}, 400
         return {'success': False, 'message': str(e)}, 500
+    finally:
+        db.close_connection()
+
+
+# ========================================================
+# NUEVO CÓDIGO: SERVICIO PARA IMPORTACIÓN MASIVA
+# ========================================================
+def import_maquinaria_bulk(data_list: list, user_id: int) -> tuple[dict, int]:
+    """
+    Procesa un listado de maquinarias provenientes de una importación (Excel/CSV)
+    y los inserta asegurando que no haya placas duplicadas.
+    """
+    if not data_list or not isinstance(data_list, list):
+        return {"success": False, "message": "El formato enviado debe ser una lista de registros."}, 400
+
+    db = PostgreSQL()
+    importados = 0
+    errores = []
+
+    try:
+        db.create_connection()
+
+        for idx, item in enumerate(data_list):
+            try:
+                tipo = item.get('tipo')
+                placa = item.get('placa')
+
+                if not tipo or not placa:
+                    errores.append(f"Fila {idx+1}: Falta 'tipo' o 'placa'.")
+                    continue
+
+                # Limpieza y normalización de textos
+                placa = str(placa).strip().upper()
+                item['placa'] = placa
+                item['tipo'] = str(tipo).strip().upper()
+
+                if item.get('modelo'):
+                    item['modelo'] = str(item['modelo']).strip().upper()
+
+                if item.get('estado'):
+                    item['estado'] = str(item['estado']).strip().upper()
+                else:
+                    item['estado'] = 'DISPONIBLE'
+
+                # Validaciones numéricas
+                try:
+                    if item.get('kilometraje') not in [None, ""]:
+                        item['kilometraje'] = float(item['kilometraje'])
+                    else:
+                        item['kilometraje'] = None
+                        
+                    if item.get('cant_tanque_comb') not in [None, ""]:
+                        item['cant_tanque_comb'] = float(item['cant_tanque_comb'])
+                    else:
+                        item['cant_tanque_comb'] = None
+                except ValueError:
+                    errores.append(f"Fila {idx+1} ({placa}): Valores numéricos inválidos (kilometraje o tanque).")
+                    continue
+
+                # Evitamos duplicados por placa
+                if maquinaria_repos.get_maquinaria_by_placa(db, placa):
+                    errores.append(f"Fila {idx+1} ({placa}): La placa ya se encuentra registrada en el sistema.")
+                    continue
+
+                # Inserción (usando la función existente)
+                ra = maquinaria_repos.add_maquinaria(db, item)
+
+                if ra and ra > 0:
+                    importados += 1
+                else:
+                    errores.append(f"Fila {idx+1} ({placa}): Fallo al insertar en la base de datos.")
+
+            except Exception as e:
+                errores.append(f"Fila {idx+1}: Error inesperado - {str(e)}")
+
+        # Si insertó al menos 1 registro, hace COMMIT
+        if importados > 0:
+            db.insert_log(accion=f"IMPORTACIÓN MASIVA: Se registraron {importados} maquinarias", id_user=user_id)
+            db.conn.commit()
+
+        # Respuesta estructurada para el Frontend
+        mensaje = f"Importación finalizada. {importados} maquinarias agregadas exitosamente."
+        if errores:
+            mensaje += f" Se omitieron {len(errores)} filas con errores."
+
+        return {
+            "success": True if importados > 0 else False,
+            "message": mensaje,
+            "importados": importados,
+            "errores": errores
+        }, 201 if importados > 0 else 400
+
+    except Exception as e:
+        if db.conn:
+            db.conn.rollback()
+        return {"success": False, "message": f"Error crítico en importación: {str(e)}"}, 500
     finally:
         db.close_connection()

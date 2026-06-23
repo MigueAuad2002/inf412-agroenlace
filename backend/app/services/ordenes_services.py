@@ -37,7 +37,6 @@ def create_work_order(data, supervisor_id):
     f_inicio = data.get('fecha_inicio')
     id_campana = data.get('id_campana')
     
-    # CORRECCIÓN: Si llega un string vacío "", lo convertimos a None (NULL en PostgreSQL)
     f_fin = data.get('fecha_fin')
     if not f_fin:  
         f_fin = None

@@ -76,3 +76,21 @@ def delete_cultivos(id_producto):
     user_id = request.user_payload.get("user_id")
     res, status = cultivos_services.remove_cultivo(id_producto, user_id)
     return jsonify(res), status
+
+
+# ========================================================
+# NUEVO CÓDIGO: RUTA PARA IMPORTACIÓN MASIVA
+# ========================================================
+
+@router.route("/api/bodega/import", methods=["POST"])
+@admin_or_supervisor_required
+def import_cultivos_bulk():
+    """
+    Endpoint que recibe una lista JSON de productos (parseada en el frontend 
+    a partir de un archivo Excel/CSV) y los inserta de forma masiva.
+    """
+    data = request.get_json()
+    user_id = request.user_payload.get("user_id")
+    
+    res, status = cultivos_services.import_cultivos(data, user_id)
+    return jsonify(res), status

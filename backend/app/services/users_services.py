@@ -160,3 +160,91 @@ def get_employees_list(id_empresa=None):
         return {'success': False, 'message': f'Error: {str(e)}'}, 500
     finally:
         db.close_connection()
+
+
+# ========================================================
+# NUEVO CÓDIGO: SERVICIO PARA IMPORTACIÓN MASIVA
+# ========================================================
+def import_users(data_list):
+    """
+    Recibe una lista de diccionarios (datos parseados de CSV/Excel en el frontend)
+    e inserta los usuarios válidos masivamente.
+    """
+    if not data_list or not isinstance(data_list, list):
+        return {"success": False, "message": "El formato enviado debe ser una lista de registros."}, 400
+
+    db = PostgreSQL()
+    importados = 0
+    errores = []
+
+    try:
+        db.create_connection()
+
+        for idx, item in enumerate(data_list):
+            try:
+                # El front puede enviar las llaves de varias formas (ej: 'user' o 'user_name')
+                user_val = item.get('user') or item.get('user_name')
+                doc_val = item.get('doc') or item.get('documento_identidad')
+                name_val = item.get('name') or item.get('nombre_razon_social')
+                mail_val = item.get('mail') or item.get('correo')
+                number_val = item.get('number') or item.get('telefono')
+                password_val = item.get('password')
+
+                if not user_val or not doc_val or not name_val or not mail_val or not number_val or not password_val:
+                    errores.append(f"Fila {idx+1}: Faltan campos obligatorios.")
+                    continue
+                
+                # Normalizamos datos
+                user_name = str(user_val).strip().upper()
+                doc_str = str(doc_val).strip()
+                name_str = str(name_val).strip().upper()
+                mail_str = str(mail_val).strip().lower()
+                password_hash = generate_password_hash(str(password_val), method='pbkdf2:sha256')
+                
+                # Valores opcionales / foráneos
+                id_role = item.get('id_role', item.get('id_rol', 4))
+                id_empresa = item.get('id_empresa')
+                direction = item.get('dir') or item.get('direccion')
+                direction = str(direction).strip().upper() if direction else None
+
+                # Verificamos si existe antes de insertar (evita romper la transacción)
+                if auth_repos.check_user_exists(db, doc_str, mail_str, user_name):
+                    errores.append(f"Fila {idx+1} ({user_name}): El usuario, documento o correo ya existe.")
+                    continue
+
+                # Insertamos en base de datos
+                ra = auth_repos.insert_user(
+                    db, user_name, doc_str, name_str, mail_str, str(number_val), 
+                    direction, password_hash, int(id_role), id_empresa
+                )
+
+                if ra and ra > 0:
+                    importados += 1
+                else:
+                    errores.append(f"Fila {idx+1} ({user_name}): Fallo al insertar.")
+
+            except Exception as e:
+                errores.append(f"Fila {idx+1}: Error inesperado - {str(e)}")
+
+        # Si al menos un registro se importó, hacemos commit
+        if importados > 0:
+            db.conn.commit()
+
+        # Construir mensaje de respuesta
+        mensaje = f"Importación finalizada. {importados} usuarios agregados exitosamente."
+        if errores:
+            mensaje += f" Se omitieron {len(errores)} filas con errores."
+
+        return {
+            "success": True if importados > 0 else False,
+            "message": mensaje,
+            "importados": importados,
+            "errores": errores
+        }, 201 if importados > 0 else 400
+
+    except Exception as e:
+        if db.conn:
+            db.conn.rollback()
+        return {"success": False, "message": f"Error crítico en importación: {str(e)}"}, 500
+    finally:
+        db.close_connection()

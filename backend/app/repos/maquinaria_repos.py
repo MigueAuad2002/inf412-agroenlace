@@ -58,3 +58,8 @@ def update_maquinaria(db, nro_maquina, data):
 def delete_maquinaria(db, nro_maquina):
     query = f"DELETE FROM {Config.SCHEMA}.{Config.T_MAQUINA} WHERE nro_maquina = %s;"
     return db.execute_query(query, (nro_maquina,))
+
+# ========================================================
+# NOTA: Para la importación masiva de maquinaria
+# reutilizaremos add_maquinaria desde el servicio.
+# ========================================================

@@ -1,4 +1,4 @@
-# app/repos/users_repo.py
+# app/repos/users_repos.py
 from app.config import Config
 
 def get_all_users(db, id_empresa=None):
@@ -49,3 +49,8 @@ def get_all_employees(db, id_empresa=None):
         params.append(id_empresa)
         
     return db.execute_query(query, tuple(params) if params else None, fetchall=True)
+
+# ========================================================
+# NOTA: Para la importación masiva de usuarios 
+# reutilizaremos auth_repos.insert_user desde el servicio.
+# ========================================================

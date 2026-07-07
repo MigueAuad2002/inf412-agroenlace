@@ -43,3 +43,8 @@ def update_cultivo_dynamic(db, id_producto, fields, params):
         WHERE id_producto = %s
     """
     return db.execute_query(query, tuple(params + [id_producto]))
+
+# ========================================================
+# NOTA: Para la importación masiva reutilizaremos la 
+# función insert_cultivo iterándola desde el servicio.
+# ========================================================

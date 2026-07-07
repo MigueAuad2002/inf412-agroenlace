@@ -282,7 +282,7 @@ class _AuthScreenState extends State<AuthScreen> {
       children: [
         AgroTextField(
           label: 'Usuario',
-          hint: 'admin@agro.com',
+          hint: 'emple@agroenlace.com',
           controller: userController,
           keyboardType: TextInputType.emailAddress,
         ),
@@ -430,7 +430,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'admin@agro.com / admin123',
+                  'emple@agroenlace.com / 12345678',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,

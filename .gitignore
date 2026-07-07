@@ -3,6 +3,7 @@ backend_v2/
 backend_v2/*
 api/
 api/*
+.atl/*
 
 #PYTHON CACHE
 __pycache__/

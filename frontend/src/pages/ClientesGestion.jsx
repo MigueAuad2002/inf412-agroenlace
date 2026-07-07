@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '../store/auth_store';
 import ExcelJS from 'exceljs';
+import { io } from 'socket.io-client'; // <-- Importamos el socket
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL =
+  import.meta.env.VITE_API_URL ??
+  (import.meta.env.DEV ? 'http://127.0.0.1:5000/api' : '');
+// Extraemos la URL base (sin el /api) para conectar el socket correctamente
+const SOCKET_URL = API_URL.replace(/\/api\/?$/, '');
 
 const CATEGORIAS_CLIENTE = [
   'TODOS',
@@ -122,12 +127,47 @@ export default function AgroCRM() {
 
   const [notifyForm, setNotifyForm] = useState(initialNotifyForm);
 
+  // ==========================================
+  // CONEXIÓN SOCKET EN TIEMPO REAL
+  // ==========================================
+  useEffect(() => {
+    if (!token) return;
+
+    const socket = io(SOCKET_URL, {
+      query: { token },
+      transports: ['websocket', 'polling']
+    });
+
+    socket.on('nueva_notificacion', (data) => {
+      console.log('Mensaje Socket recibido:', data);
+      alert(`🔔 NUEVA NOTIFICACIÓN CRM\n\nCanal: ${data.canal}\nAsunto: ${data.asunto}\nMensaje: ${data.mensaje}`);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [token]);
+
+  // ==========================================
+  // PETICIÓN HTTP SEGURA
+  // ==========================================
   const fetchClientes = async () => {
     setLoading(true);
     try {
       const response = await fetch(`${API_URL}/crm/clientes`, {
-        headers: { Authorization: `Bearer ${token}` },
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
       });
+
+      // MANEJO EXPLÍCITO DEL ERROR 401
+      if (response.status === 401) {
+        alert("Tu sesión ha expirado o es inválida. Por favor, cierra sesión y vuelve a ingresar.");
+        setLoading(false);
+        return;
+      }
 
       const result = await response.json();
 
@@ -151,6 +191,7 @@ export default function AgroCRM() {
 
   useEffect(() => {
     if (token) fetchClientes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const clientesFiltrados = useMemo(() => {
@@ -262,15 +303,21 @@ export default function AgroCRM() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
 
+      if (response.status === 401) {
+        alert("Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.");
+        setSending(false);
+        return;
+      }
+
       const result = await response.json();
 
       if (result.success) {
-        alert(result.message || 'Notificación enviada correctamente.');
+        alert(result.message || 'Notificación enviada correctamente al servidor.');
         setShowNotifyModal(false);
         setNotifyTarget(null);
         setNotifyForm(initialNotifyForm);
@@ -376,15 +423,7 @@ export default function AgroCRM() {
         hour: '2-digit',
         minute: '2-digit',
       })}`,
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
+      '', '', '', '', '', '', '', '', '',
     ]);
     ws.mergeCells('A2:J2');
     ws.getCell('A2').style = {
@@ -395,16 +434,8 @@ export default function AgroCRM() {
     ws.addRow([]);
 
     const headerRow = ws.addRow([
-      'ID',
-      'CLIENTE',
-      'DOCUMENTO',
-      'CORREO',
-      'TELÉFONO',
-      'CATEGORÍA',
-      'ESTADO',
-      'TRANSACCIONES',
-      'MONTO TOTAL',
-      'ÚLTIMA TRANSACCIÓN',
+      'ID', 'CLIENTE', 'DOCUMENTO', 'CORREO', 'TELÉFONO',
+      'CATEGORÍA', 'ESTADO', 'TRANSACCIONES', 'MONTO TOTAL', 'ÚLTIMA TRANSACCIÓN',
     ]);
 
     headerRow.eachCell((cell) => {

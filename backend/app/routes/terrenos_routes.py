@@ -46,3 +46,19 @@ def delete_terreno():
     nro_lote = request.get_json().get('nro_lote')
     res, status = terrenos_services.delete_existing_terreno(nro_lote)
     return jsonify(res), status
+
+
+# ========================================================
+# NUEVO CÓDIGO: RUTA PARA IMPORTACIÓN MASIVA DE TERRENOS
+# ========================================================
+@router.route('/api/import-terrenos', methods=['POST'])
+@admin_required
+def import_terrenos_bulk():
+    """
+    Endpoint que recibe una lista JSON de terrenos (parseada en el frontend 
+    a partir de un archivo Excel/CSV) y los inserta masivamente.
+    """
+    data = request.get_json()
+    user_id = request.user_payload.get('user_id')
+    res, status = terrenos_services.import_terrenos_bulk(data, user_id)
+    return jsonify(res), status

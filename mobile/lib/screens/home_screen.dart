@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-
+import '../services/offline_pedido_service.dart';
 import '../services/auth_service.dart';
 import '../services/token_storage.dart';
 import '../theme/app_theme.dart';
+import '../services/notification_socket_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,11 +17,70 @@ class _HomeScreenState extends State<HomeScreen> {
   String mail = '';
   int role = 0;
   int? empresaId;
+  final socketService = NotificationSocketService.instance;
+  int _lastShownNotificationId = 0;
 
   @override
   void initState() {
     super.initState();
     loadUser();
+
+    socketService.addListener(_handleSocketNotification);
+    socketService.connect();
+
+    OfflinePedidoService.instance.init();
+  }
+
+  @override
+  void dispose() {
+    socketService.removeListener(_handleSocketNotification);
+    super.dispose();
+  }
+
+  void _handleSocketNotification() {
+    final notification = socketService.lastNotification;
+
+    if (notification == null) return;
+
+    if (notification.localId == _lastShownNotificationId) return;
+
+    _lastShownNotificationId = notification.localId;
+
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppTheme.primaryGreen,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+          content: Row(
+            children: [
+              const Icon(
+                Icons.notifications_active,
+                color: Colors.white,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${notification.asunto}: ${notification.mensaje}',
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 
   Future<void> loadUser() async {
@@ -39,7 +99,389 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Widget _buildCrmNotificationCard() {
+    return AnimatedBuilder(
+      animation: socketService,
+      builder: (context, _) {
+        final notification = socketService.lastNotification;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: socketService.unreadCount > 0
+                  ? Colors.green.shade300
+                  : AppTheme.borderColor,
+            ),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGreen.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.notifications_active_outlined,
+                      color: AppTheme.primaryGreen,
+                      size: 23,
+                    ),
+                  ),
+                  if (socketService.unreadCount > 0)
+                    Positioned(
+                      right: -5,
+                      top: -5,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          socketService.unreadCount.toString(),
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: notification == null
+                    ? const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'NOTIFICACIONES CRM',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.slateText,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          SizedBox(height: 3),
+                          Text(
+                            'Aún no recibiste notificaciones del servidor.',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.mutedText,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            notification.asunto.toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.slateText,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            notification.mensaje,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.mutedText,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${notification.canal}  •  ${notification.fecha}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.primaryGreen,
+                              letterSpacing: 0.7,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+              const SizedBox(width: 8),
+              if (socketService.unreadCount > 0)
+                IconButton(
+                  onPressed: socketService.markNotificationsAsRead,
+                  icon: const Icon(
+                    Icons.done_all,
+                    color: AppTheme.primaryGreen,
+                  ),
+                  tooltip: 'Marcar como leído',
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOfflinePedidosCard() {
+    final offlineService = OfflinePedidoService.instance;
+
+    return AnimatedBuilder(
+      animation: offlineService,
+      builder: (context, _) {
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: offlineService.pendingCount > 0
+                  ? Colors.amber.shade300
+                  : AppTheme.borderColor,
+            ),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 11,
+                height: 11,
+                decoration: BoxDecoration(
+                  color: offlineService.statusColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'MODO OFFLINE: ${offlineService.statusLabel}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.slateText,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      offlineService.pendingCount == 0
+                          ? 'No tienes pedidos pendientes por enviar.'
+                          : 'Pedidos pendientes por enviar: ${offlineService.pendingCount}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.mutedText,
+                      ),
+                    ),
+                    if (offlineService.lastMessage.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        offlineService.lastMessage,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.mutedText,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 34,
+                child: OutlinedButton(
+                  onPressed: offlineService.syncing
+                      ? null
+                      : () async {
+                          await offlineService.syncPendingOrders();
+                        },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryGreen,
+                    side: const BorderSide(color: AppTheme.primaryGreen),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                  ),
+                  child: Text(
+                    offlineService.syncing ? '...' : 'ENVIAR',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  Widget _buildSocketStatusCard() {
+    return AnimatedBuilder(
+      animation: socketService,
+      builder: (context, _) {
+        final status = socketService.status;
+        final connected = status == SocketConnectionStatus.connected;
+        final connecting = status == SocketConnectionStatus.connecting ||
+            status == SocketConnectionStatus.reconnecting;
+        final error = status == SocketConnectionStatus.error;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: error
+                  ? Colors.red.shade200
+                  : connected
+                      ? Colors.green.shade200
+                      : AppTheme.borderColor,
+            ),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 11,
+                height: 11,
+                decoration: BoxDecoration(
+                  color: socketService.statusColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    if (connected)
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.35),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CANAL DE NOTIFICACIONES: ${socketService.statusLabel}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.slateText,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      socketService.lastMessage.isEmpty
+                          ? 'Socket.IO listo para recibir eventos del servidor.'
+                          : socketService.lastMessage,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.mutedText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 34,
+                child: OutlinedButton(
+                  onPressed: connecting
+                      ? null
+                      : connected
+                          ? socketService.disconnect
+                          : socketService.reconnect,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor:
+                        connected ? Colors.red : AppTheme.primaryGreen,
+                    side: BorderSide(
+                      color: connected ? Colors.red : AppTheme.primaryGreen,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                  ),
+                  child: Text(
+                    connecting
+                        ? '...'
+                        : connected
+                            ? 'CORTAR'
+                            : 'RECONECTAR',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> logout() async {
+    socketService.disconnect();
     await AuthService.logout();
 
     if (!mounted) return;
@@ -85,6 +527,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildWelcomeCard(),
                     const SizedBox(height: 16),
+                    _buildSocketStatusCard(),
+                    const SizedBox(height: 16),
+                    _buildOfflinePedidosCard(),
+                    const SizedBox(height: 16),
+                    _buildCrmNotificationCard(),
+                    const SizedBox(height: 12),
                     _buildQuickStats(),
                     const SizedBox(height: 20),
                     _buildSectionTitle('MÓDULOS PRINCIPALES'),
@@ -116,6 +564,25 @@ class _HomeScreenState extends State<HomeScreen> {
                         Navigator.pushNamed(context, '/perfil');
                       },
                     ),
+                    _buildModuleCard(
+                      icon: Icons.assignment,
+                      title: 'Órdenes de trabajo',
+                      subtitle: 'Ver actividades asignadas y cargar reportes',
+                      tag: 'CAMPO',
+                      onTap: () {
+                        Navigator.pushNamed(context, '/ordenes');
+                      },
+                    ),
+                    if (role == 3)
+                      _buildModuleCard(
+                        icon: Icons.local_shipping,
+                        title: 'Entregas',
+                        subtitle: 'Rutas de distribución y confirmación de entrega',
+                        tag: 'LOGÍSTICA',
+                        onTap: () {
+                          Navigator.pushNamed(context, '/entregas');
+                        },
+                      ),
                     const SizedBox(height: 14),
                     _buildFooter(),
                   ],
@@ -282,7 +749,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _buildSmallCard(
             icon: Icons.shopping_bag,
             title: 'MÓDULOS',
-            value: '3',
+            value: role == 3 ? '5' : '4',
           ),
         ),
       ],

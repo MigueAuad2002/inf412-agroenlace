@@ -1,6 +1,6 @@
 # app/routes/crm_routes.py
 from functools import wraps
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify,current_app
 from app.services import crm_services
 from app.utils.security import decode_access_token
 
@@ -96,3 +96,13 @@ def crm_health():
         "message": "CRM real conectado a base de datos.",
         "module": "CRM Clientes"
     }), 200
+
+@router.route('/api/crm/notificaciones/enviar', methods=['POST'])
+@crm_required
+def enviar_notificacion_crm(payload_token=None):
+    data = request.get_json()
+    
+    socketio_instance = current_app.socketio 
+    
+    res, status = crm_services.procesar_envio_notificaciones(data, socketio_instance)
+    return jsonify(res), status

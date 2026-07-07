@@ -10,6 +10,7 @@ import 'screens/perfil_screen.dart';
 import 'screens/productos_screen.dart';
 import 'screens/pedidos_screen.dart';
 import 'screens/ordenes_screen.dart';
+import 'screens/entregas_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +46,7 @@ class AgroEnlaceApp extends StatelessWidget {
         '/productos': (context) => const ProductosScreen(),
         '/pedidos': (context) => const PedidosScreen(),
         '/ordenes': (context) => const OrdenesScreen(),
+        '/entregas': (context) => const EntregasScreen(),
       },
     );
   }

@@ -3,7 +3,9 @@ import { useAuthStore } from '../store/auth_store';
 import ExcelJS from 'exceljs';
 import { io } from 'socket.io-client'; // <-- Importamos el socket
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL =
+  import.meta.env.VITE_API_URL ??
+  (import.meta.env.DEV ? 'http://127.0.0.1:5000/api' : '');
 // Extraemos la URL base (sin el /api) para conectar el socket correctamente
 const SOCKET_URL = API_URL.replace(/\/api\/?$/, '');
 

@@ -17,6 +17,14 @@ def verificar_stock(db, id_producto):
     resultado = db.execute_query(query, (id_producto,), fetchone=True)
     return float(resultado[0]) if resultado else 0.0
 
+def get_producto_para_pedido(db, id_producto, id_empresa):
+    query = f"""
+        SELECT id_producto, precio_unitario, stock_actual
+        FROM {Config.SCHEMA}.bodega
+        WHERE id_producto = %s AND id_empresa = %s
+    """
+    return db.execute_query(query, (id_producto, id_empresa), fetchone=True)
+
 def insert_transaccion_cabecera(db, tipo_transaccion, monto_total, id_cliente, id_supervisor_admin, id_empresa):
     query = f"""
         INSERT INTO {Config.SCHEMA}.transaccion_comercial 
@@ -54,3 +62,13 @@ def get_detalle_pedido(db, nro_transaccion):
                 JOIN {Config.SCHEMA}.bodega b ON d.id_producto = b.id_producto
                 WHERE d.nro_transaccion = %s"""
     return db.execute_query(query, (nro_transaccion,), fetchall=True)
+
+def get_descuento_pedido(db, nro_transaccion):
+    query = f"""
+        SELECT d.subtotal_original, d.porcentaje_descuento, d.descuento_total,
+               d.monto_final, n.nombre_nivel AS nivel_fidelizacion
+        FROM {Config.SCHEMA}.{Config.T_DESCUENTO_TRANSACCION} d
+        LEFT JOIN {Config.SCHEMA}.{Config.T_NIVEL_FIDELIZACION} n ON n.id_nivel = d.id_nivel
+        WHERE d.nro_transaccion = %s
+    """
+    return db.execute_query(query, (nro_transaccion,), fetchone=True)

@@ -29,6 +29,8 @@ import VentasCatalogo from "./pages/VentasCatalogo";
 import HistorialPedidos from "./pages/VentasHistorial";
 import ReportesBi from "./pages/ReportesBi";
 import ImportarMasivo from "./pages/ImportarMasivo";
+import LogisticaRutas from "./pages/LogisticaRutas";
+import CrmFidelizacion from "./pages/CrmFidelizacion";
 
 
 function AnimatedRoutes() {
@@ -72,10 +74,13 @@ function AnimatedRoutes() {
             <Route path="/agro/maquinaria" element={<AgroMaquinarias/>} />
             <Route path="/agro/cultivo" element={<AgroBodega />} />
             <Route path="/crm/clientes" element={<AgroCRM />} />
+            <Route path="/crm/fidelizacion" element={<CrmFidelizacion />} />
             <Route path="/agro/ordenes" element={<AgroOrdenes/>} />
             
             <Route path="/ventas/catalogo" element={<VentasCatalogo />} />
             <Route path="/ventas/historial" element={<HistorialPedidos />} />
+            
+            <Route path="/logistica/rutas" element={<LogisticaRutas />} />
             
             {/* PRIVADAS SOLO ADMINISTRADORES (Rol 1) */}
             <Route element={<AdminRoute />}>

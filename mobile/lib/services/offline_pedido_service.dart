@@ -96,7 +96,9 @@ class OfflinePedidoService extends ChangeNotifier {
     final result = await PedidoService.crearPedido(carrito);
 
     if (result.success) {
-      _lastMessage = 'Pedido enviado correctamente.';
+      _lastMessage = result.descuentoTotal > 0
+          ? 'Pedido enviado. Descuento ${result.nivelFidelizacion}: Bs. ${result.descuentoTotal.toStringAsFixed(2)}.'
+          : 'Pedido enviado correctamente.';
       await refreshPendingCount();
       return result;
     }

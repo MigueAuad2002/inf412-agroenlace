@@ -47,7 +47,8 @@ export default function DashboardLayout() {
         {nombre:'Campañas de Siembra/Cosecha',ruta:'/agro/campana'},
         {nombre:'Ordenes de Trabajo',ruta:'/agro/ordenes'},
         {nombre:'Gestion de Maquinaria',ruta:'/agro/maquinaria'},
-        {nombre:'Bodega de Cultivos',ruta:'/agro/cultivo'}
+        {nombre:'Bodega de Cultivos',ruta:'/agro/cultivo'},
+        {nombre: 'Dispositivos IOT',ruta:'/dispositivos-iot'}
       ]
     },
     {
@@ -60,9 +61,10 @@ export default function DashboardLayout() {
     },
     {
       modulo: 'CRM y Clientes',
-      rolesPermitidos: [1, 2, 3, 4], 
+      rolesPermitidos: [1, 2], 
       submenus: [
-        {nombre:'Gestión de Clientes',ruta:'/crm/clientes'}
+        {nombre:'Gestión de Clientes',ruta:'/crm/clientes'},
+        {nombre:'Programa de Fidelización',ruta:'/crm/fidelizacion'}
       ]
     },
     {
@@ -71,6 +73,13 @@ export default function DashboardLayout() {
       submenus: [
         { nombre: 'Dashboard Directivo', ruta: '/reportes'},
         { nombre: 'Importacion/Exportacion de Datos Masivos', ruta: '/import-export'},
+      ]
+    },
+    {
+      modulo: 'Logística de Distribución',
+      rolesPermitidos: [1, 2],
+      submenus: [
+        {nombre: 'Gestión de Rutas', ruta: '/logistica/rutas'}
       ]
     },
     {

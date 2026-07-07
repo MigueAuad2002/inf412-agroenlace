@@ -9,6 +9,7 @@ export default function HistorialPedidos() {
   
   const [pedidos, setPedidos] = useState([]);
   const [detalle, setDetalle] = useState(null);
+  const [descuentoDetalle, setDescuentoDetalle] = useState(null);
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
   const [loading, setLoading] = useState(true);
   const [detalleLoading, setDetalleLoading] = useState(false);
@@ -59,6 +60,7 @@ export default function HistorialPedidos() {
     setPagoExitoso(false);
     setProcesandoPago(false);
     setPedidoSeleccionado(pedido);
+    setDescuentoDetalle(null);
     setDatosTarjeta({ tipo: 'VISA', numero: '', titular: '', expiracion: '', cvv: '' });
 
     // Scroll suave automático en móviles hacia el detalle
@@ -67,7 +69,8 @@ export default function HistorialPedidos() {
     }, 100);
 
     if (detallesCache.current[pedido.nro_transaccion]) {
-      setDetalle(detallesCache.current[pedido.nro_transaccion]);
+      setDetalle(detallesCache.current[pedido.nro_transaccion].detalles);
+      setDescuentoDetalle(detallesCache.current[pedido.nro_transaccion].descuento);
       return;
     }
 
@@ -77,8 +80,12 @@ export default function HistorialPedidos() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      detallesCache.current[pedido.nro_transaccion] = data.detalles;
+      detallesCache.current[pedido.nro_transaccion] = {
+        detalles: data.detalles,
+        descuento: data.descuento
+      };
       setDetalle(data.detalles);
+      setDescuentoDetalle(data.descuento || null);
     } catch (err) {
       console.error('Error al cargar detalles:', err);
     } finally {
@@ -321,8 +328,16 @@ export default function HistorialPedidos() {
                         <div className="w-full sm:w-64 space-y-3">
                           <div className="flex justify-between text-xs font-bold text-slate-500 px-2">
                             <span>Subtotal:</span>
-                            <span>Bs. {montoTotal.toFixed(2)}</span>
+                            <span>Bs. {Number(descuentoDetalle?.subtotal_original || montoTotal).toFixed(2)}</span>
                           </div>
+                          {descuentoDetalle && Number(descuentoDetalle.descuento_total || 0) > 0 && (
+                            <>
+                              <div className="flex justify-between text-xs font-bold text-emerald-700 px-2">
+                                <span>Nivel {descuentoDetalle.nivel_fidelizacion} ({Number(descuentoDetalle.porcentaje_descuento).toFixed(0)}%):</span>
+                                <span>- Bs. {Number(descuentoDetalle.descuento_total).toFixed(2)}</span>
+                              </div>
+                            </>
+                          )}
                           <div className="flex justify-between text-xs font-bold text-slate-500 px-2">
                             <span>IVA (13%):</span>
                             <span>Bs. 0.00</span>

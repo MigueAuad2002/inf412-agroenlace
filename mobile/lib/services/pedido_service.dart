@@ -70,11 +70,20 @@ class PedidoService {
       );
     }
 
+    final descuentoTotal = _toDouble(data['descuento_total']);
+    final nivel = data['nivel_fidelizacion']?.toString() ?? 'SIN NIVEL';
+
     return PedidoResult(
       success: true,
-      message: data['message'] ?? 'Pedido registrado correctamente',
+      message: descuentoTotal > 0
+          ? 'Pedido registrado. Descuento $nivel aplicado: Bs. ${descuentoTotal.toStringAsFixed(2)}'
+          : data['message'] ?? 'Pedido registrado correctamente',
       nroTransaccion: _toInt(data['nro_transaccion']),
       montoTotal: _toDouble(data['monto_total']),
+      subtotalOriginal: _toDouble(data['subtotal_original']),
+      descuentoTotal: descuentoTotal,
+      porcentajeDescuento: _toDouble(data['porcentaje_descuento']),
+      nivelFidelizacion: nivel,
     );
   }
 
@@ -152,6 +161,10 @@ class PedidoResult {
   final List<PedidoDetalle> detalles;
   final int nroTransaccion;
   final double montoTotal;
+  final double subtotalOriginal;
+  final double descuentoTotal;
+  final double porcentajeDescuento;
+  final String nivelFidelizacion;
 
   PedidoResult({
     required this.success,
@@ -161,6 +174,10 @@ class PedidoResult {
     this.detalles = const [],
     this.nroTransaccion = 0,
     this.montoTotal = 0.0,
+    this.subtotalOriginal = 0.0,
+    this.descuentoTotal = 0.0,
+    this.porcentajeDescuento = 0.0,
+    this.nivelFidelizacion = 'SIN NIVEL',
   });
 }
 

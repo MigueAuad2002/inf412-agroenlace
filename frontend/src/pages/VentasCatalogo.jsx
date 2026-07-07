@@ -94,7 +94,14 @@ export default function VentasCatalogo() {
       const res = await response.json();
       
       if (res.success) {
-        setPedidoExitoso({ transaccion: res.nro_transaccion, total: res.monto_total });
+        setPedidoExitoso({
+          transaccion: res.nro_transaccion,
+          total: res.monto_total,
+          subtotal: res.subtotal_original,
+          descuento: res.descuento_total,
+          porcentaje: res.porcentaje_descuento,
+          nivel: res.nivel_fidelizacion
+        });
         setCarrito([]);
         cargarCatalogo(); 
       } else {
@@ -282,6 +289,10 @@ export default function VentasCatalogo() {
                 Bs. {totalCarrito.toFixed(2)}
               </span>
             </div>
+            <div className="mb-4 rounded-md border border-emerald-100 bg-emerald-50 p-3">
+              <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-widest">Fidelización CRM</p>
+              <p className="text-[10px] text-emerald-700 mt-1 font-medium">El backend validará tu historial y aplicará el descuento automáticamente al confirmar.</p>
+            </div>
             <button 
               onClick={confirmarPedido}
               disabled={carrito.length === 0 || enviando}
@@ -326,6 +337,22 @@ export default function VentasCatalogo() {
                 <span className="font-bold text-slate-500">Nro. Transacción</span>
                 <span className="font-bold text-slate-800">ORD-{String(pedidoExitoso.transaccion).padStart(5, '0')}</span>
               </div>
+              <div className="flex justify-between mb-2">
+                <span className="font-bold text-slate-500">Subtotal</span>
+                <span className="font-bold text-slate-800">Bs. {Number(pedidoExitoso.subtotal || pedidoExitoso.total).toFixed(2)}</span>
+              </div>
+              {Number(pedidoExitoso.descuento || 0) > 0 && (
+                <>
+                  <div className="flex justify-between mb-2 text-emerald-700">
+                    <span className="font-bold">Nivel CRM</span>
+                    <span className="font-bold">{pedidoExitoso.nivel} ({Number(pedidoExitoso.porcentaje).toFixed(0)}%)</span>
+                  </div>
+                  <div className="flex justify-between mb-2 text-emerald-700">
+                    <span className="font-bold">Descuento</span>
+                    <span className="font-bold">- Bs. {Number(pedidoExitoso.descuento).toFixed(2)}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between">
                 <span className="font-bold text-slate-500">Monto Total</span>
                 <span className="font-bold text-slate-800">Bs. {Number(pedidoExitoso.total).toFixed(2)}</span>

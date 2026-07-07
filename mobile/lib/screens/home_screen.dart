@@ -573,6 +573,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         Navigator.pushNamed(context, '/ordenes');
                       },
                     ),
+                    if (role == 3)
+                      _buildModuleCard(
+                        icon: Icons.local_shipping,
+                        title: 'Entregas',
+                        subtitle: 'Rutas de distribución y confirmación de entrega',
+                        tag: 'LOGÍSTICA',
+                        onTap: () {
+                          Navigator.pushNamed(context, '/entregas');
+                        },
+                      ),
                     const SizedBox(height: 14),
                     _buildFooter(),
                   ],
@@ -739,7 +749,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _buildSmallCard(
             icon: Icons.shopping_bag,
             title: 'MÓDULOS',
-            value: '3',
+            value: role == 3 ? '5' : '4',
           ),
         ),
       ],

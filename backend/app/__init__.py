@@ -2,7 +2,7 @@ from .config import Config
 from flask import Flask
 from flask_socketio import SocketIO
 from flask_cors import CORS
-from app.routes import main_routes,bi_routes,notificaciones_routes,audit_routes,crm_routes,pedidos_routes,profile_routes,mant_maquinaria_routes,prediccion_routes,ordenes_routes,cultivos_routes,roles_routes,auth_routes,users_routes,terrenos_routes,empresas_routes,campanias_routes,maquinarias_routes
+from app.routes import main_routes,bi_routes,iot_routes,notificaciones_routes,audit_routes,crm_routes,pedidos_routes,profile_routes,mant_maquinaria_routes,prediccion_routes,ordenes_routes,cultivos_routes,roles_routes,auth_routes,users_routes,terrenos_routes,empresas_routes,campanias_routes,maquinarias_routes,logistica_routes,fidelizacion_routes
 
 
 def create_app():
@@ -29,8 +29,11 @@ def create_app():
     app.register_blueprint(crm_routes.router)
     app.register_blueprint(audit_routes.router)
     app.register_blueprint(bi_routes.router)
+    app.register_blueprint(logistica_routes.router)
+    app.register_blueprint(fidelizacion_routes.router)
+    app.register_blueprint(iot_routes.router)
 
-    
+
     #CONFIGURACION CORS
     CORS(
         app,

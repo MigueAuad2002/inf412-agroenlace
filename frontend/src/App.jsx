@@ -27,6 +27,7 @@ import AgroOrdenes from "./pages/AgroOrdenes";
 import AgroCRM from "./pages/ClientesGestion";
 import VentasCatalogo from "./pages/VentasCatalogo";
 import HistorialPedidos from "./pages/VentasHistorial";
+import AgroDispositivos from "./pages/AgroDispositivos";
 
 
 function AnimatedRoutes() {
@@ -74,6 +75,8 @@ function AnimatedRoutes() {
             
             <Route path="/ventas/catalogo" element={<VentasCatalogo />} />
             <Route path="/ventas/historial" element={<HistorialPedidos />} />
+
+            <Route path="/dispositivos-iot" element={<AgroDispositivos/>} />
             
             {/* PRIVADAS SOLO ADMINISTRADORES (Rol 1) */}
             <Route element={<AdminRoute />}>
